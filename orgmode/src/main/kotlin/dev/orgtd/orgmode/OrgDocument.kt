@@ -1,0 +1,463 @@
+package dev.orgtd.orgmode
+
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.util.UUID
+
+/**
+ * 一个 org 文件的可编辑视图。
+ *
+ * 保真策略：文档内部就是**原始行数组**（每行含行尾换行符），解析只产生只读索引，
+ * 所有变更都是「改写某几行 / 插入某几行 / 删除某几行」。未涉及的行不存在被重写的路径，
+ * 因此往返保真由数据结构保证，而不是靠格式化器小心翼翼。
+ *
+ * 文档不可变：每个变更返回新实例，调用方拿到的 [Headline] 与旧实例绑定，
+ * 变更后必须重新取。
+ */
+class OrgDocument private constructor(val lines: List<String>) {
+
+    val entries: List<Headline> = parseEntries(lines)
+
+    fun serialize(): String = lines.joinToString("")
+
+    fun entryAt(lineIndex: Int): Headline? = entries.firstOrNull { it.lineIndex == lineIndex }
+
+    fun entryById(id: String): Headline? = entries.firstOrNull { it.id == id }
+
+    // ---------------------------------------------------------------- 变更
+
+    /** 打勾 / 取消打勾。只改标题行与 CLOSED 行。 */
+    fun toggleDone(target: Headline, now: LocalDateTime): OrgDocument {
+        val keyword = target.keyword ?: return this
+        val out = lines.toMutableList()
+
+        if (keyword == "DONE") {
+            out[target.lineIndex] = rewriteLine(out[target.lineIndex], headlineText(target, keyword = "TODO"))
+            removePlanning(out, target, "CLOSED")
+        } else {
+            out[target.lineIndex] = rewriteLine(out[target.lineIndex], headlineText(target, keyword = "DONE"))
+            if (target.closed == null) {
+                val indent = planningIndent(out, target)
+                out.add(target.lineIndex + 1, "${indent}CLOSED: ${OrgTime.formatClosed(now)}${newline(out)}")
+            }
+        }
+        return OrgDocument(out)
+    }
+
+    /** 设置 / 清除 SCHEDULED。传 null 表示删除。 */
+    fun setScheduled(target: Headline, spec: DateSpec?): OrgDocument {
+        val out = lines.toMutableList()
+        val limit = minOf(target.bodyStart, target.endExclusive)
+        val index = (target.lineIndex + 1 until limit).firstOrNull { i ->
+            planningTokens(lineText(out[i])).any { it.first.equals("SCHEDULED", true) }
+        }
+
+        if (spec == null) {
+            if (index == null) return this
+            val rebuilt = rebuildPlanning(lineText(out[index]), remove = "SCHEDULED")
+            if (rebuilt.isNullOrBlank()) {
+                out.removeAt(index)
+            } else {
+                out[index] = rewriteLine(out[index], rebuilt)
+            }
+            return OrgDocument(out)
+        }
+
+        if (index != null) {
+            val rebuilt = rebuildPlanning(
+                lineText(out[index]),
+                replace = "SCHEDULED" to OrgTime.formatSpec(spec),
+            ) ?: return this
+            out[index] = rewriteLine(out[index], rebuilt)
+            return OrgDocument(out)
+        }
+
+        val indent = planningIndent(out, target)
+        val insertAt = limit.coerceAtMost(out.size)
+        ensureNewlineBefore(out, insertAt)
+        out.add(insertAt, "${indent}SCHEDULED: ${OrgTime.formatSpec(spec)}${newline(out)}")
+        return OrgDocument(out)
+    }
+
+    fun rename(target: Headline, title: String): OrgDocument {
+        if (title == target.title) return this
+        val out = lines.toMutableList()
+        out[target.lineIndex] = rewriteLine(out[target.lineIndex], headlineText(target, title = title))
+        return OrgDocument(out)
+    }
+
+    fun setPriority(target: Headline, priority: Char?): OrgDocument {
+        if (priority == target.priority) return this
+        val out = lines.toMutableList()
+        out[target.lineIndex] = rewriteLine(out[target.lineIndex], headlineText(target, priority = priority))
+        return OrgDocument(out)
+    }
+
+    /** 给条目补 `:ID:`：有抽屉就插在 `:END:` 前，没有就整块插入。 */
+    fun ensureId(target: Headline, uuid: String = UUID.randomUUID().toString()): OrgDocument {
+        if (target.properties.containsKey("ID")) return this
+
+        val out = lines.toMutableList()
+        val nl = newline(out)
+        val drawer = findPropertiesDrawer(out, target)
+
+        if (drawer != null) {
+            val (_, end) = drawer
+            val indent = out[end].takeWhile { it == ' ' || it == '\t' }
+            out.add(end, "${indent}:ID: $uuid$nl")
+        } else {
+            out.addAll(
+                target.lineIndex + 1,
+                listOf(
+                    "  :PROPERTIES:$nl",
+                    "  :ID: $uuid$nl",
+                    "  :END:$nl",
+                ),
+            )
+        }
+        return OrgDocument(out)
+    }
+
+    /**
+     * 新建任务。[list] 为 null 时追加到文件末尾（未归类），否则插到该清单子树末尾。
+     */
+    fun appendTask(
+        title: String,
+        id: String,
+        scheduled: LocalDate? = null,
+        list: Headline? = null,
+    ): OrgDocument {
+        val out = lines.toMutableList()
+        val nl = newline(out)
+        val insertAt = list?.endExclusive?.coerceIn(0, out.size) ?: out.size
+        ensureNewlineBefore(out, insertAt)
+
+        val block = ArrayList<String>(5)
+        block += "* TODO $title$nl"
+        block += "  :PROPERTIES:$nl"
+        block += "  :ID: $id$nl"
+        block += "  :END:$nl"
+        if (scheduled != null) {
+            block += "SCHEDULED: ${OrgTime.formatSpec(DateSpec(scheduled))}$nl"
+        }
+        out.addAll(insertAt, block)
+        return OrgDocument(out)
+    }
+
+    fun delete(target: Headline): OrgDocument =
+        OrgDocument(lines.filterIndexed { i, _ -> i < target.lineIndex || i >= target.endExclusive })
+
+    // ---------------------------------------------------------------- 内部
+
+    private fun removePlanning(out: MutableList<String>, target: Headline, keyword: String) {
+        val limit = minOf(target.bodyStart, target.endExclusive, out.size)
+        for (i in (limit - 1) downTo (target.lineIndex + 1)) {
+            val text = lineText(out[i])
+            val hits = planningTokens(text)
+            if (hits.none { it.first.equals(keyword, true) }) continue
+            val rebuilt = rebuildPlanning(text, remove = keyword)
+            if (rebuilt.isNullOrBlank()) out.removeAt(i) else out[i] = rewriteLine(out[i], rebuilt)
+        }
+    }
+
+    private fun planningIndent(out: List<String>, target: Headline): String {
+        val limit = minOf(target.bodyStart, target.endExclusive, out.size)
+        for (i in target.lineIndex + 1 until limit) {
+            val text = lineText(out[i])
+            if (planningTokens(text).isNotEmpty()) {
+                return text.takeWhile { it == ' ' || it == '\t' }
+            }
+        }
+        return ""
+    }
+
+    private fun findPropertiesDrawer(out: List<String>, target: Headline): Pair<Int, Int>? {
+        val limit = minOf(target.bodyStart, target.endExclusive, out.size)
+        var start = -1
+        for (i in target.lineIndex + 1 until limit) {
+            val text = lineText(out[i]).trim()
+            if (text.isEmpty()) break
+            if (text.equals(":PROPERTIES:", true)) {
+                start = i
+                break
+            }
+        }
+        if (start < 0) return null
+        for (j in start + 1 until limit) {
+            if (lineText(out[j]).trim().equals(":END:", true)) return start to j
+        }
+        return null
+    }
+
+    private fun headlineText(
+        h: Headline,
+        keyword: String? = h.keyword,
+        title: String = h.title,
+        priority: Char? = h.priority,
+    ): String = buildString {
+        append("*".repeat(h.level)).append(' ')
+        keyword?.let { append(it).append(' ') }
+        priority?.let { append("[#").append(it).append("] ") }
+        append(title)
+        if (h.tags.isNotEmpty()) {
+            if (title.isNotEmpty()) append(' ')
+            append(h.tags.joinToString(":", ":", ":"))
+        }
+    }
+
+    companion object {
+        fun parse(text: String): OrgDocument = OrgDocument(splitLines(text))
+    }
+}
+
+// -------------------------------------------------------------------- 解析
+
+private val HEADLINE_RE = Regex("""^(\*+)[ \t]+(.*)$""")
+private val KEYWORD_RE = Regex("""^([A-Z][A-Z0-9]*)(?:[ \t]+|$)""")
+private val PRIORITY_RE = Regex("""^\[#([A-Z])\][ \t]*""")
+private val TAGS_RE = Regex("""(?:^|[ \t]+)(:(?:[^\s:]+:)+)$""")
+private val PLANNING_TOKEN_RE = Regex("""(SCHEDULED|DEADLINE|CLOSED):\s*(<[^>]*>|\[[^\]]*\])""")
+private val PLANNING_LINE_RE = Regex("""^\s*(SCHEDULED|DEADLINE|CLOSED):""")
+private val DRAWER_RE = Regex("""^:[A-Za-z0-9_\-]+:$""")
+private val PROPERTY_RE = Regex("""^\s*:([A-Za-z0-9_\-]+):\s*(.*)$""")
+private val FILE_KEYWORDS_RE = Regex("""^#\+(?:SEQ_)?TODO:\s*(.*)$""", RegexOption.IGNORE_CASE)
+private val TS_RE = Regex(
+    """^(\d{4})-(\d{2})-(\d{2})(?:\s+[A-Za-z]{3})?(?:\s+(\d{1,2}):(\d{2}))?(?:\s+((?:\+\+?|\.\+)\d+[hdwmy]))?(?:\s+(-\d+[hdwmy]))?$""",
+)
+
+private fun splitLines(text: String): List<String> {
+    if (text.isEmpty()) return emptyList()
+    val out = ArrayList<String>()
+    var start = 0
+    for (i in text.indices) {
+        if (text[i] == '\n') {
+            out += text.substring(start, i + 1)
+            start = i + 1
+        }
+    }
+    if (start < text.length) out += text.substring(start)
+    return out
+}
+
+private fun lineText(raw: String): String = raw.trimEnd('\r', '\n')
+
+private fun terminatorOf(raw: String): String = when {
+    raw.endsWith("\r\n") -> "\r\n"
+    raw.endsWith("\n") -> "\n"
+    else -> ""
+}
+
+private fun rewriteLine(original: String, newText: String): String = newText + terminatorOf(original)
+
+private fun newline(lines: List<String>): String =
+    if (lines.any { it.endsWith("\r\n") }) "\r\n" else "\n"
+
+private fun ensureNewlineBefore(out: MutableList<String>, index: Int) {
+    if (index in 1..out.size) {
+        val prev = out[index - 1]
+        if (!prev.endsWith("\n")) out[index - 1] = prev + newline(out)
+    }
+}
+
+private fun keywordSet(lines: List<String>): Set<String> {
+    val keywords = linkedSetOf("TODO", "DONE")
+    for (raw in lines) {
+        val match = FILE_KEYWORDS_RE.find(lineText(raw).trim()) ?: continue
+        match.groupValues[1]
+            .split('|')
+            .flatMap { it.split(' ', '\t') }
+            .map { it.trim() }
+            .filter { it.matches(Regex("[A-Za-z][A-Za-z0-9]*")) }
+            .forEach { keywords += it }
+    }
+    return keywords
+}
+
+private fun parseEntries(lines: List<String>): List<Headline> {
+    val keywords = keywordSet(lines)
+
+    val rough = ArrayList<Headline>()
+    for (i in lines.indices) {
+        val parsed = parseHeadline(i, lineText(lines[i]), keywords) ?: continue
+        rough += parsed
+    }
+
+    return rough.mapIndexed { index, headline ->
+        val end = rough.drop(index + 1).firstOrNull { it.level <= headline.level }?.lineIndex ?: lines.size
+        parseBody(lines, headline.copy(endExclusive = end))
+    }
+}
+
+private fun parseHeadline(lineIndex: Int, text: String, keywords: Set<String>): Headline? {
+    val match = HEADLINE_RE.find(text) ?: return null
+    val level = match.groupValues[1].length
+    var content = match.groupValues[2].trim()
+
+    var keyword: String? = null
+    KEYWORD_RE.find(content)?.let { kw ->
+        val candidate = kw.groupValues[1]
+        if (candidate in keywords) {
+            keyword = candidate
+            content = content.substring(kw.range.last + 1).trimStart()
+        }
+    }
+
+    var priority: Char? = null
+    PRIORITY_RE.find(content)?.let { p ->
+        priority = p.groupValues[1][0]
+        content = content.substring(p.range.last + 1).trimStart()
+    }
+
+    var tags: List<String> = emptyList()
+    TAGS_RE.find(content)?.let { t ->
+        tags = t.groupValues[1].trim(':').split(':').filter { it.isNotEmpty() }
+        content = content.substring(0, t.range.first).trimEnd()
+    }
+
+    return Headline(
+        lineIndex = lineIndex,
+        endExclusive = lineIndex,
+        level = level,
+        keyword = keyword,
+        priority = priority,
+        title = content.trim(),
+        tags = tags,
+        scheduled = null,
+        deadline = null,
+        closed = null,
+        properties = emptyMap(),
+        bodyStart = lineIndex,
+    )
+}
+
+private fun parseBody(lines: List<String>, headline: Headline): Headline {
+    var scheduled: DateSpec? = null
+    var deadline: DateSpec? = null
+    var closed: LocalDateTime? = null
+    val properties = LinkedHashMap<String, String>()
+    var bodyStart = headline.endExclusive
+
+    var i = headline.lineIndex + 1
+    while (i < headline.endExclusive) {
+        val text = lineText(lines[i])
+        val trimmed = text.trim()
+
+        if (trimmed.isEmpty()) {
+            bodyStart = i
+            break
+        }
+
+        if (trimmed.equals(":PROPERTIES:", ignoreCase = true)) {
+            var j = i + 1
+            while (j < headline.endExclusive) {
+                val inner = lineText(lines[j]).trim()
+                if (inner.equals(":END:", ignoreCase = true)) break
+                PROPERTY_RE.find(inner)?.let { properties[it.groupValues[1]] = it.groupValues[2].trim() }
+                j++
+            }
+            i = if (j < headline.endExclusive) j + 1 else headline.endExclusive
+            continue
+        }
+
+        if (DRAWER_RE.matches(trimmed)) {
+            var j = i + 1
+            while (j < headline.endExclusive && !lineText(lines[j]).trim().equals(":END:", ignoreCase = true)) j++
+            i = if (j < headline.endExclusive) j + 1 else headline.endExclusive
+            continue
+        }
+
+        if (PLANNING_LINE_RE.containsMatchIn(text)) {
+            for (token in planningTokens(text)) {
+                when (token.first.uppercase()) {
+                    "SCHEDULED" -> scheduled = parseSpec(token.second) ?: scheduled
+                    "DEADLINE" -> deadline = parseSpec(token.second) ?: deadline
+                    "CLOSED" -> closed = parseClosed(token.second) ?: closed
+                }
+            }
+            i++
+            continue
+        }
+
+        bodyStart = i
+        break
+    }
+
+    return headline.copy(
+        scheduled = scheduled,
+        deadline = deadline,
+        closed = closed,
+        properties = properties,
+        bodyStart = bodyStart,
+    )
+}
+
+/** 一行里的计划 token，返回 (关键字, 原始时间戳)。 */
+private fun planningTokens(text: String): List<Pair<String, String>> =
+    PLANNING_TOKEN_RE.findAll(text).map { it.groupValues[1] to it.groupValues[2] }.toList()
+
+/**
+ * 重建计划行：替换或删除某个 token，其余原样保留。
+ * 返回 null 表示这一行已经没有计划 token 了，应当整行删除。
+ */
+private fun rebuildPlanning(
+    text: String,
+    replace: Pair<String, String>? = null,
+    remove: String? = null,
+): String? {
+    val tokens = planningTokens(text)
+    if (tokens.isEmpty()) return null
+
+    val indent = text.takeWhile { it == ' ' || it == '\t' }
+    val parts = ArrayList<String>(tokens.size)
+    for ((key, value) in tokens) {
+        if (remove != null && key.equals(remove, true)) continue
+        val newValue = if (replace != null && key.equals(replace.first, true)) replace.second else value
+        parts += "$key: $newValue"
+    }
+    if (parts.isEmpty()) return null
+    return indent + parts.joinToString(" ")
+}
+
+private fun parseSpec(raw: String): DateSpec? {
+    if (raw.length < 3) return null
+    val active = raw.startsWith("<")
+    val inner = raw.substring(1, raw.length - 1).trim()
+    val match = TS_RE.matchEntire(inner) ?: return null
+
+    return runCatching {
+        DateSpec(
+            date = LocalDate.of(
+                match.groupValues[1].toInt(),
+                match.groupValues[2].toInt(),
+                match.groupValues[3].toInt(),
+            ),
+            time = if (match.groupValues[4].isEmpty()) {
+                null
+            } else {
+                LocalTime.of(match.groupValues[4].toInt(), match.groupValues[5].toInt())
+            },
+            repeater = match.groupValues[6].ifEmpty { null },
+            warning = match.groupValues[7].ifEmpty { null },
+            active = active,
+        )
+    }.getOrNull()
+}
+
+private fun parseClosed(raw: String): LocalDateTime? {
+    if (raw.length < 3) return null
+    val inner = raw.substring(1, raw.length - 1).trim()
+    val match = TS_RE.matchEntire(inner) ?: return null
+    if (match.groupValues[4].isEmpty()) return null
+
+    return runCatching {
+        LocalDateTime.of(
+            LocalDate.of(
+                match.groupValues[1].toInt(),
+                match.groupValues[2].toInt(),
+                match.groupValues[3].toInt(),
+            ),
+            LocalTime.of(match.groupValues[4].toInt(), match.groupValues[5].toInt()),
+        )
+    }.getOrNull()
+}

@@ -1,0 +1,23 @@
+* DONE Sleep
+CLOSED: [2026-11-22 Sun 11:14]
+  :PROPERTIES:
+  :MODIFIED: [2026-11-22 Sun 11:14]
+  :END:
+SCHEDULED: <2026-11-22 Sun 00:00 +1d>
+* DONE Get up
+CLOSED: [2026-11-22 Sun 11:15]
+  :PROPERTIES:
+  :MODIFIED: [2026-11-22 Sun 11:15]
+  :END:
+SCHEDULED: <2026-11-22 Sun 08:00 +1d>
+* TODO Exercise
+SCHEDULED: <2026-11-22 Sun +1d>
+* TODO 修改培养计划
+* TODO 发 HPK rediffused 组分拟合的 issue comment
+SCHEDULED: <2026-11-22 Sun>
+* TODO 更新 15906 channel example 的图
+SCHEDULED: <2026-11-22 Sun>
+* TODO push 新的 IRF slides，并 @ chuanhui
+SCHEDULED: <2026-11-22 Sun>
+* TODO 给 BALM 总结一份汇报 slides
+SCHEDULED: <2026-11-22 Sun>
