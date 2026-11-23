@@ -192,7 +192,7 @@ SAF 没有 inotify。三层兜底：
 
 | # | 内容 | 估时 | 验收 |
 |---|---|---|---|
-| M0 | 工具链 + 空项目跑起来 | 0.5d | 模拟器出现空白列表 |
+| M0 | 工具链 + 空项目跑起来 | 0.5d | ✅ 模拟器跑通 4 tab 空壳 |
 | M1 | 解析器 + 往返测试 | 2d | 真实 `gtd.org`/`inbox.org` 解析后序列化字节相同 |
 | M2 | SAF 选目录 + 只读渲染 | 1.5d | 手机上看到今天三条任务 |
 | M3 | 完成/取消/延后 + 写回 | 1.5d | 改完 `adb pull` 回来 `git diff` 只有预期行 |
@@ -261,3 +261,33 @@ avdmanager create avd -n gtd35 -k "system-images;android-35;google_apis;arm64-v8
 1. 分发方式：仅个人侧载，还是上架 Play / 开源。影响签名配置、`USE_EXACT_ALARM` 的申报口径、隐私政策与包名。
 2. 手机 Android 版本与厂商（决定精确闹钟的权限引导文案与 Doze 兜底测试机型）。
 
+
+## 15. 版本锁定与升级路径
+
+首次构建时撞到的事实：2026 年的 androidx 构件（`core-ktx 1.19`、Compose BOM `2026.x`）要求 **AGP 9.1+ 且 compileSdk 37**，而 AGP 8.13 官方支持上限是 compileSdk 36。命令行工具安装的 SDK 写的是 package.xml `schema v4`，AGP 8.13 读它只报 warning，不影响构建。
+
+当前锁定：
+
+| 组件 | 版本 | 原因 |
+|---|---|---|
+| Gradle | 8.14.3 | AGP 8.13 的最低要求之上，JDK 21 兼容 |
+| AGP | 8.13.2 | 8.x 最后一版，compileSdk 36 |
+| Kotlin | 2.2.21 | 与 AGP 8.13、Compose 编译器插件配套 |
+| compileSdk / targetSdk | 36 | |
+| minSdk | 26 | |
+| Compose BOM | 2025.06.01 | 与 compileSdk 36 匹配 |
+| core-ktx / activity / lifecycle | 1.16.0 / 1.10.1 / 2.9.1 | 同上 |
+
+升级路径（单独一个提交，便于回退）：
+
+1. `sdkmanager "platforms;android-37" "build-tools;37.0.0"`；
+2. AGP → 9.5.x，Gradle → 9.9.x，Kotlin → 2.4.x（Compose 编译器插件随 Kotlin 走）；
+3. 恢复最新 androidx 与 Compose BOM；
+4. 注意 AGP 9 的 DSL 变化（内置 Kotlin 支持、部分 DSL 移除），预计需要改 `app/build.gradle.kts` 的插件声明。
+
+## 16. 已完成事项
+
+- 工具链：JDK 21（Homebrew formula）、SDK platform 35/36、build-tools 35/36、emulator、arm64 系统镜像、AVD `gtd35`。
+- 脚手架：`:orgmode` + `:app` 双模块，版本目录，Gradle wrapper，GitHub Actions（`gradlew :orgmode:test :app:assembleDebug`）。
+- 应用包名 `dev.orgtd`，GPL-3.0-or-later。
+- M0 已在 `emulator-5554` 上验证：4 tab、分段控件、空状态、FAB。
