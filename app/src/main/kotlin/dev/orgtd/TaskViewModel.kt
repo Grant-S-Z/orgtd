@@ -7,11 +7,11 @@ import androidx.lifecycle.viewModelScope
 import dev.orgtd.data.OrgPrefs
 import dev.orgtd.data.SafStore
 import dev.orgtd.orgmode.DateSpec
-import dev.orgtd.orgmode.Headline
 import dev.orgtd.orgmode.OrgDocument
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import dev.orgtd.reminder.ReminderScheduler
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,9 +31,13 @@ data class TaskUi(
     val priority: Char?,
     val tags: List<String>,
     val listName: String?,
+    val level: Int = 1,
+    val closed: LocalDateTime? = null,
+    val children: Int = 0,
+    val reminderAt: LocalDateTime? = null,
 )
 
-data class ListUi(val name: String, val open: Int)
+data class ListUi(val line: Int, val name: String, val open: Int)
 
 data class UiState(
     val folderSelected: Boolean = false,
@@ -56,6 +60,9 @@ data class UiState(
         }
 
     val ungrouped: List<TaskUi> get() = tasks.filter { it.listName == null }
+
+    val completed: List<TaskUi>
+        get() = tasks.filter { it.done }.sortedByDescending { it.closed }
 }
 
 class TaskViewModel(app: Application) : AndroidViewModel(app) {
@@ -119,6 +126,11 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         val entry = doc.entryAt(line) ?: error("这条任务已经变了，请刷新")
         val withId = doc.ensureId(entry)
         val target = withId.entryAt(line) ?: error("这条任务已经变了，请刷新")
+
+        // 重复任务：完成即推进日期，状态保持 TODO
+        if (!target.isDone) {
+            withId.advanceRepeat(target, LocalDate.now())?.let { return@mutate it }
+        }
         withId.toggleDone(target, LocalDateTime.now())
     }
 
@@ -164,6 +176,32 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         val entry = doc.entryAt(line) ?: error("这条任务已经变了，请刷新")
         undoSnapshot = doc.serialize()
         doc.delete(entry)
+    }
+
+    fun addList(name: String) {
+        if (name.isBlank()) return
+        mutate { doc -> doc.appendList(name.trim()) }
+    }
+
+    fun renameList(line: Int, name: String) {
+        if (name.isBlank()) return
+        mutate { doc ->
+            val list = doc.entries.firstOrNull { it.lineIndex == line && it.isList }
+                ?: error("清单已经变了，请刷新")
+            doc.rename(list, name.trim())
+        }
+    }
+
+    fun deleteList(line: Int) = mutate { doc ->
+        val list = doc.entries.firstOrNull { it.lineIndex == line && it.isList }
+            ?: error("清单已经变了，请刷新")
+        doc.archiveList(list, LocalDateTime.now())
+    }
+
+    fun moveList(line: Int, delta: Int) = mutate { doc ->
+        val list = doc.entries.firstOrNull { it.lineIndex == line && it.isList }
+            ?: error("清单已经变了，请刷新")
+        doc.moveList(list, delta)
     }
 
     fun undoDelete() {
@@ -229,37 +267,19 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------------- 映射
 
     private fun apply(doc: OrgDocument) {
-        val tasks = toTasks(doc)
+        val tasks = TaskMapper.toTasks(doc)
         _state.update {
-            it.copy(loading = false, missingFile = false, error = null, tasks = tasks, lists = toLists(doc, tasks))
-        }
-    }
-
-    private fun toTasks(doc: OrgDocument): List<TaskUi> {
-        val lists = doc.entries.filter { it.isList }
-        return doc.entries.filter { it.isTask }.map { headline ->
-            TaskUi(
-                line = headline.lineIndex,
-                title = headline.title,
-                done = headline.isDone,
-                date = headline.date,
-                time = headline.scheduled?.time,
-                repeater = headline.scheduled?.repeater,
-                priority = headline.priority,
-                tags = headline.tags,
-                listName = owningList(lists, headline.lineIndex),
+            it.copy(
+                loading = false,
+                missingFile = false,
+                error = null,
+                tasks = tasks,
+                lists = TaskMapper.toLists(doc, tasks),
             )
         }
+        viewModelScope.launch(Dispatchers.IO) {
+            ReminderScheduler.sync(getApplication(), tasks)
+        }
     }
 
-    private fun owningList(lists: List<Headline>, line: Int): String? =
-        lists.filter { it.lineIndex < line && line < it.endExclusive }.maxByOrNull { it.lineIndex }?.title
-
-    private fun toLists(doc: OrgDocument, tasks: List<TaskUi>): List<ListUi> =
-        doc.entries.filter { it.isList }.map { list ->
-            val open = tasks.count {
-                !it.done && it.line > list.lineIndex && it.line < list.endExclusive
-            }
-            ListUi(list.title, open)
-        }
 }

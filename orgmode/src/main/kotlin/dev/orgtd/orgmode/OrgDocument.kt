@@ -148,6 +148,96 @@ class OrgDocument private constructor(val lines: List<String>) {
     fun delete(target: Headline): OrgDocument =
         OrgDocument(lines.filterIndexed { i, _ -> i < target.lineIndex || i >= target.endExclusive })
 
+    /**
+     * 重复任务完成后推进 SCHEDULED，状态保持 TODO。
+     *
+     * - `+1w` / `++1w`：从原定日期往后推，推到严格晚于完成日为止（补上漏掉的周期）
+     * - `.+3d`：从完成日往后推
+     *
+     * 不是重复任务时返回 null，调用方按普通任务处理。
+     */
+    fun advanceRepeat(target: Headline, completedOn: LocalDate): OrgDocument? {
+        val spec = target.scheduled ?: return null
+        val repeater = spec.repeater ?: return null
+        val match = REPEATER_RE.matchEntire(repeater) ?: return null
+
+        val prefix = match.groupValues[1]
+        val count = match.groupValues[2].toInt()
+        val unit = match.groupValues[3]
+
+        var next = if (prefix == ".+") {
+            shift(completedOn, count, unit)
+        } else {
+            var cursor = shift(spec.date, count, unit)
+            var guard = 0
+            while (!cursor.isAfter(completedOn) && guard++ < 500) {
+                cursor = shift(cursor, count, unit)
+            }
+            cursor
+        }
+        if (next == spec.date) next = shift(next, count, unit)
+
+        return setScheduled(target, spec.copy(date = next))
+    }
+
+    /** 在文件末尾新建清单；若已有 `* 已删除`，插在它前面，避免新清单掉进回收站。 */
+    fun appendList(name: String): OrgDocument {
+        val out = lines.toMutableList()
+        val nl = newline(out)
+        val at = trashStart(out) ?: out.size
+        ensureNewlineBefore(out, at)
+        out.add(at, "* $name$nl")
+        return OrgDocument(out)
+    }
+
+    /** 删除清单：整棵子树降一级，挂到文末的 `* 已删除` 下，并记录删除时间。 */
+    fun archiveList(target: Headline, now: LocalDateTime): OrgDocument {
+        if (target.level != 1) return this
+
+        val block = lines.subList(target.lineIndex, target.endExclusive).toList()
+        if (block.isEmpty()) return this
+
+        val nl = newline(lines)
+        val demoted = block.map { demoteLine(it) }
+
+        val rest = lines.filterIndexed { i, _ -> i < target.lineIndex || i >= target.endExclusive }
+        val out = rest.toMutableList()
+
+        if (trashStart(out) == null) {
+            ensureNewlineBefore(out, out.size)
+            out += "* 已删除$nl"
+        }
+
+        ensureNewlineBefore(out, out.size)
+        out += demoted.first()
+        out += "  :PROPERTIES:$nl"
+        out += "  :DELETED_AT: ${OrgTime.formatClosed(now)}$nl"
+        out += "  :END:$nl"
+        out += demoted.drop(1)
+        return OrgDocument(out)
+    }
+
+    /** 相邻顶层清单上下移动，[delta] 只接受 ±1。 */
+    fun moveList(target: Headline, delta: Int): OrgDocument {
+        if (target.level != 1 || delta != 1 && delta != -1) return this
+
+        val lists = entries.filter { it.level == 1 }
+        val index = lists.indexOfFirst { it.lineIndex == target.lineIndex }
+        val other = index + delta
+        if (index < 0 || other !in lists.indices) return this
+
+        val first = lists[minOf(index, other)]
+        val second = lists[maxOf(index, other)]
+        if (first.endExclusive != second.lineIndex) return this
+
+        val out = ArrayList<String>(lines.size)
+        out += lines.subList(0, first.lineIndex)
+        out += lines.subList(second.lineIndex, second.endExclusive)
+        out += lines.subList(first.lineIndex, first.endExclusive)
+        out += lines.subList(second.endExclusive, lines.size)
+        return OrgDocument(out)
+    }
+
     // ---------------------------------------------------------------- 内部
 
     private fun removePlanning(out: MutableList<String>, target: Headline, keyword: String) {
@@ -460,4 +550,24 @@ private fun parseClosed(raw: String): LocalDateTime? {
             LocalTime.of(match.groupValues[4].toInt(), match.groupValues[5].toInt()),
         )
     }.getOrNull()
+}
+
+private val REPEATER_RE = Regex("""^(\+\+|\.\+|\+)(\d+)([dwmy])$""")
+
+private fun shift(date: LocalDate, count: Int, unit: String): LocalDate = when (unit) {
+    "d" -> date.plusDays(count.toLong())
+    "w" -> date.plusWeeks(count.toLong())
+    "m" -> date.plusMonths(count.toLong())
+    "y" -> date.plusYears(count.toLong())
+    else -> date
+}
+
+private fun trashStart(lines: List<String>): Int? =
+    lines.indexOfFirst { lineText(it).trim() == "* 已删除" }.takeIf { it >= 0 }
+
+private fun demoteLine(raw: String): String {
+    val text = lineText(raw)
+    val stars = text.takeWhile { it == '*' }.length
+    if (stars == 0 || stars == text.length || text[stars] != ' ') return raw
+    return "*" + raw
 }

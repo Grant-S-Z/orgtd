@@ -2,6 +2,7 @@ package dev.orgtd.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,17 +14,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -56,6 +62,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import dev.orgtd.ListUi
 import dev.orgtd.TaskUi
 import dev.orgtd.UiState
 import java.time.LocalDate
@@ -73,7 +80,8 @@ private enum class Tab(val label: String, val icon: ImageVector) {
 private enum class Range(val label: String) {
     Today("今天"),
     Week("本周"),
-    All("全部未完成"),
+    All("全部"),
+    Completed("已完成"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,6 +89,8 @@ private enum class Range(val label: String) {
 fun OrgtdApp(
     state: UiState,
     fileName: String,
+    exactAlarmGranted: Boolean,
+    onRequestExactAlarm: () -> Unit,
     onPickFolder: () -> Unit,
     onRefresh: () -> Unit,
     onToggle: (Int) -> Unit,
@@ -88,12 +98,19 @@ fun OrgtdApp(
     onUpdateTask: (Int, String, LocalDate?, Char?) -> Unit,
     onDeleteTask: (Int) -> Unit,
     onUndoDelete: () -> Unit,
+    onAddList: (String) -> Unit,
+    onRenameList: (Int, String) -> Unit,
+    onDeleteList: (Int) -> Unit,
+    onMoveList: (Int, Int) -> Unit,
     onDismissError: () -> Unit,
 ) {
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
     var rangeIndex by rememberSaveable { mutableIntStateOf(0) }
     var showAdd by rememberSaveable { mutableStateOf(false) }
+    var showAddList by rememberSaveable { mutableStateOf(false) }
     var editingLine by rememberSaveable { mutableIntStateOf(-1) }
+    var renamingLine by rememberSaveable { mutableIntStateOf(-1) }
+    var deletingLine by rememberSaveable { mutableIntStateOf(-1) }
 
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -136,8 +153,13 @@ fun OrgtdApp(
         },
         floatingActionButton = {
             if (state.folderSelected && tab != Tab.Search) {
-                FloatingActionButton(onClick = { showAdd = true }) {
-                    Icon(Icons.Filled.Add, contentDescription = "新建任务")
+                FloatingActionButton(
+                    onClick = { if (tab == Tab.Lists) showAddList = true else showAdd = true },
+                ) {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = if (tab == Tab.Lists) "新建清单" else "新建任务",
+                    )
                 }
             }
         },
@@ -148,6 +170,9 @@ fun OrgtdApp(
                 .padding(innerPadding),
         ) {
             state.error?.let { message -> ErrorBar(message, onDismissError) }
+            if (state.folderSelected && !exactAlarmGranted) {
+                ExactAlarmBanner(onRequestExactAlarm)
+            }
 
             when {
                 !state.folderSelected -> FolderPrompt(onPickFolder)
@@ -167,7 +192,14 @@ fun OrgtdApp(
                     onOpen = { editingLine = it },
                 )
 
-                tab == Tab.Lists -> ListsTab(state)
+                tab == Tab.Lists -> ListsTab(
+                    state = state,
+                    onRename = { line ->
+                        renamingLine = line
+                    },
+                    onDelete = { line -> deletingLine = line },
+                    onMove = onMoveList,
+                )
                 else -> SearchTab(
                     state = state,
                     onToggle = onToggle,
@@ -184,6 +216,47 @@ fun OrgtdApp(
                 onAddTask(title, date)
                 showAdd = false
             },
+        )
+    }
+
+    if (showAddList) {
+        NameDialog(
+            title = "新建清单",
+            initial = "",
+            onDismiss = { showAddList = false },
+            onConfirm = { name ->
+                onAddList(name)
+                showAddList = false
+            },
+        )
+    }
+
+    val renaming = state.lists.firstOrNull { it.line == renamingLine }
+    if (renaming != null) {
+        NameDialog(
+            title = "重命名清单",
+            initial = renaming.name,
+            onDismiss = { renamingLine = -1 },
+            onConfirm = { name ->
+                onRenameList(renaming.line, name)
+                renamingLine = -1
+            },
+        )
+    }
+
+    val deleting = state.lists.firstOrNull { it.line == deletingLine }
+    if (deleting != null) {
+        AlertDialog(
+            onDismissRequest = { deletingLine = -1 },
+            title = { Text("删除清单") },
+            text = { Text("「${deleting.name}」和其中的任务会移到文件末尾的 * 已删除 下，可在 Emacs 里恢复。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteList(deleting.line)
+                    deletingLine = -1
+                }) { Text("删除") }
+            },
+            dismissButton = { TextButton(onClick = { deletingLine = -1 }) { Text("取消") } },
         )
     }
 
@@ -217,6 +290,7 @@ private fun TodayTab(
     when (Range.entries[rangeIndex]) {
         Range.Today -> TaskList(state.today, today, onToggle, onOpen, "今天没有安排的任务")
         Range.Week -> TaskList(state.week, today, onToggle, onOpen, "本周还没有排期")
+        Range.Completed -> TaskList(state.completed, today, onToggle, onOpen, "还没有完成的任务")
         Range.All -> {
             val groups = state.tasks.filter { !it.done }.groupBy { it.listName ?: "未归类" }
             if (groups.isEmpty()) {
@@ -241,18 +315,38 @@ private fun InboxTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> U
 }
 
 @Composable
-private fun ListsTab(state: UiState) {
+private fun ListsTab(
+    state: UiState,
+    onRename: (Int) -> Unit,
+    onDelete: (Int) -> Unit,
+    onMove: (Int, Int) -> Unit,
+) {
     val lists = state.lists
     if (lists.isEmpty() && state.ungrouped.isEmpty()) {
-        EmptyHint("还没有清单\n在 org 文件里用顶层标题创建，比如 * 工作")
+        EmptyHint("还没有清单\n点右下角 + 新建，或在 org 文件里写顶层标题")
         return
     }
 
     LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
         if (state.ungrouped.isNotEmpty()) {
-            item(key = "ungrouped") { ListRow("未归类", state.ungrouped.count { !it.done }) }
+            item(key = "ungrouped") {
+                ListRow("未归类", state.ungrouped.count { !it.done }, actions = null)
+            }
         }
-        items(lists, key = { it.name }) { list -> ListRow(list.name, list.open) }
+        itemsIndexed(lists, key = { _, list -> list.line }) { index, list ->
+            ListRow(
+                name = list.name,
+                open = list.open,
+                actions = ListActions(
+                    canUp = index > 0,
+                    canDown = index < lists.lastIndex,
+                    onUp = { onMove(list.line, -1) },
+                    onDown = { onMove(list.line, 1) },
+                    onRename = { onRename(list.line) },
+                    onDelete = { onDelete(list.line) },
+                ),
+            )
+        }
     }
 }
 
@@ -331,7 +425,11 @@ private fun TaskRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onOpen(task.line) }
-            .padding(vertical = 8.dp),
+            .padding(
+                start = ((task.level - 1).coerceAtLeast(0) * 14).dp,
+                top = 8.dp,
+                bottom = 8.dp,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = task.done, onCheckedChange = { onToggle(task.line) })
@@ -343,8 +441,10 @@ private fun TaskRow(
                 color = if (task.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             )
             val meta = buildList {
-                task.date?.let { add(formatDate(it, today)) }
+                if (!task.done) task.date?.let { add(formatDate(it, today)) }
+                task.closed?.let { add("完成于 ${formatDate(it.toLocalDate(), today)}") }
                 task.repeater?.let { add("重复 $it") }
+                if (task.children > 0) add("${task.children} 个子任务")
                 task.listName?.let { add(it) }
                 if (task.tags.isNotEmpty()) add(task.tags.joinToString(" ") { "#$it" })
             }
@@ -378,12 +478,23 @@ private fun PriorityBadge(priority: Char) {
     }
 }
 
+private class ListActions(
+    val canUp: Boolean,
+    val canDown: Boolean,
+    val onUp: () -> Unit,
+    val onDown: () -> Unit,
+    val onRename: () -> Unit,
+    val onDelete: () -> Unit,
+)
+
 @Composable
-private fun ListRow(name: String, open: Int) {
+private fun ListRow(name: String, open: Int, actions: ListActions?) {
+    var expanded by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
@@ -392,6 +503,33 @@ private fun ListRow(name: String, open: Int) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (actions != null) {
+            Box {
+                IconButton(onClick = { expanded = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "清单操作")
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("上移") },
+                        enabled = actions.canUp,
+                        onClick = { expanded = false; actions.onUp() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("下移") },
+                        enabled = actions.canDown,
+                        onClick = { expanded = false; actions.onDown() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("重命名") },
+                        onClick = { expanded = false; actions.onRename() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("删除") },
+                        onClick = { expanded = false; actions.onDelete() },
+                    )
+                }
+            }
+        }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 }
@@ -404,6 +542,25 @@ private fun SectionHeader(name: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
     )
+}
+
+@Composable
+private fun ExactAlarmBanner(onRequest: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "精确闹钟未授权，提醒可能延迟",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onRequest) { Text("去授权") }
+    }
 }
 
 @Composable
@@ -489,6 +646,35 @@ private fun EmptyHint(text: String) {
             textAlign = TextAlign.Center,
         )
     }
+}
+
+@Composable
+private fun NameDialog(
+    title: String,
+    initial: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var value by rememberSaveable(initial) { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { value = it },
+                label = { Text("名称") },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (value.isNotBlank()) onConfirm(value.trim()) },
+                enabled = value.isNotBlank(),
+            ) { Text("确定") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
 }
 
 private val MONTH_DAY = DateTimeFormatter.ofPattern("M月d日", Locale.CHINA)

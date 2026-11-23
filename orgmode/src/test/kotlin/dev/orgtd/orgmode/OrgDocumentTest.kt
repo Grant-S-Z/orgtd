@@ -283,6 +283,68 @@ class OrgDocumentTest {
         )
     }
 
+    // ------------------------------------------------------------ 重复任务
+
+    @Test
+    fun `加号重复按原定日期补到未来`() {
+        val doc = OrgDocument.parse("* TODO 喝水\nSCHEDULED: <2026-11-22 Sun +1d>\n")
+        val next = doc.advanceRepeat(doc.entries.first(), LocalDate.of(2026, 11, 24))!!
+
+        assertTrue(next.serialize().contains("SCHEDULED: <2026-11-25 Wed +1d>"))
+        assertEquals("TODO", next.entries.first().keyword)
+    }
+
+    @Test
+    fun `点号重复从完成日算起`() {
+        val doc = OrgDocument.parse("* TODO 浇花\nSCHEDULED: <2026-11-01 Sun .+3d>\n")
+        val next = doc.advanceRepeat(doc.entries.first(), LocalDate.of(2026, 11, 24))!!
+
+        assertTrue(next.serialize().contains("SCHEDULED: <2026-11-27 Fri .+3d>"))
+    }
+
+    @Test
+    fun `非重复任务不推进`() {
+        val doc = OrgDocument.parse("* TODO 一次性\nSCHEDULED: <2026-11-22 Sun>\n")
+        assertNull(doc.advanceRepeat(doc.entries.first(), LocalDate.of(2026, 11, 24)))
+    }
+
+    // ------------------------------------------------------------ 清单操作
+
+    @Test
+    fun `新建清单追加到末尾`() {
+        val doc = OrgDocument.parse("* 工作\n** TODO a\n")
+        assertEquals("* 工作\n** TODO a\n* 生活\n", doc.appendList("生活").serialize())
+    }
+
+    @Test
+    fun `删除清单降级并挂到已删除`() {
+        val doc = OrgDocument.parse("* 工作\n** TODO a\n* 生活\n** TODO b\n")
+        val work = doc.entries.first { it.title == "工作" }
+        val next = doc.archiveList(work, LocalDateTime.of(2026, 11, 24, 10, 0))
+
+        val expected =
+            "* 生活\n** TODO b\n* 已删除\n** 工作\n  :PROPERTIES:\n" +
+                "  :DELETED_AT: [2026-11-24 Tue 10:00]\n  :END:\n*** TODO a\n"
+        assertEquals(expected, next.serialize())
+    }
+
+    @Test
+    fun `清单上移整块交换`() {
+        val doc = OrgDocument.parse("* 工作\n** TODO a\n* 生活\n** TODO b\n")
+        val life = doc.entries.first { it.title == "生活" }
+        assertEquals(
+            "* 生活\n** TODO b\n* 工作\n** TODO a\n",
+            doc.moveList(life, -1).serialize(),
+        )
+    }
+
+    @Test
+    fun `已删除存在时新清单插在它前面`() {
+        val doc = OrgDocument.parse("* 工作\n* 已删除\n** 旧清单\n")
+        val next = doc.appendList("生活").serialize()
+        assertEquals("* 工作\n* 生活\n* 已删除\n** 旧清单\n", next)
+    }
+
     private fun lineOf(headline: String): Int {
         val lines = source.split("\n")
         val index = lines.indexOfFirst { it == headline }
