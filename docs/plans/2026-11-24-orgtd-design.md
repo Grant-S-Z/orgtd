@@ -38,7 +38,7 @@
 | 清单 | `* 工作` / `* 收件箱` | 顶层标题，自身不带 TODO 状态 |
 | 任务 | `** TODO 写周报` | 二级及以下标题 |
 | 完成 | `DONE` + `CLOSED: [ts]` | 保留 `CANCELED` 表示放弃 |
-| 等待 | `WAITING` | 需文件级 `#+TODO:` 声明，见下 |
+| 等待 | 暂不支持 | v1 只写 `TODO`/`DONE`，见 §4.1 |
 | 日期 | `SCHEDULED: <2026-11-24 Mon>` | 「今天/某天」 |
 | 截止 | `DEADLINE: <2026-11-28 Fri>` | 列表红字、逾期高亮 |
 | 重复 | `SCHEDULED: <… +1w>` / `<… .+3d>` | `+` 按日历、`.+` 按完成时间起算 |
@@ -49,17 +49,13 @@
 | 提醒 | 计划行里的时刻部分 | 只有日期时由 App 设置兜底，不写回文件，见 §8.1 |
 | 身份 | `:PROPERTIES:` 中的 `:ID: uuid` | 懒注入，见 §7 |
 
-### 4.1 文件级 TODO 声明
+### 4.1 状态词：只写 TODO / DONE
 
-`gtd.org` 当前没有状态词声明，而 Emacs 侧 `org-todo-keywords` 只认 `TODO/DONE/CANCELED`。若 App 直接写 `WAITING`，Emacs 会当作无状态标题。
+v1 只支持 `TODO` 和 `DONE` 两个状态，不写 `WAITING`、`CANCELLED`。
 
-因此写入时保证文件首部存在（不存在则插入）：
+**因此不向文件注入 `#+TODO:`。** Emacs 的默认关键字就是 `TODO/DONE`，注入反而是噪音；早期设计里那一行是为了让 `WAITING` 在 Emacs 里生效，现在用不到了。
 
-```org
-#+TODO: TODO WAITING | DONE CANCELLED
-```
-
-`#+TODO` 等价于 `#+SEQ_TODO`，与 `inbox.org` 首行同机制，作用域仅限本文件。
+解析器仍然认识文件级 `#+TODO:` / `#+SEQ_TODO:` 声明：如果某个文件声明了额外关键字（例如 `inbox.org` 的 `WAITING`），这些条目会被正确解析成「有状态但非 TODO/DONE」，界面只读展示、不参与状态流转，写回时原样保留。
 
 ### 4.2 保留原则
 
@@ -193,16 +189,16 @@ SAF 没有 inotify。三层兜底：
 | # | 内容 | 估时 | 验收 |
 |---|---|---|---|
 | M0 | 工具链 + 空项目跑起来 | 0.5d | ✅ 模拟器跑通 4 tab 空壳 |
-| M1 | 解析器 + 往返测试 | 2d | 真实 `gtd.org`/`inbox.org` 解析后序列化字节相同 |
-| M2 | SAF 选目录 + 只读渲染 | 1.5d | 手机上看到今天三条任务 |
-| M3 | 完成/取消/延后 + 写回 | 1.5d | 改完 `adb pull` 回来 `git diff` 只有预期行 |
-| M4 | 新建 + 详情编辑 + ID 注入 | 2d | 手机上新建的任务 Emacs 里正常显示 |
+| M1 | 解析器 + 往返测试 | 2d | ✅ 25 个测试，真实 `gtd.org` 黄金比对 |
+| M2 | SAF 选目录 + 只读渲染 | 1.5d | ✅ 模拟器选中目录后列出 5 条逾期任务 |
+| M3 | 打勾/改期写回 | 1.5d | ✅ 只改 2 行 + 插入 ID 抽屉，`.bak` 保留原文 |
+| M4 | 新建/编辑/删除 + ID 注入 | 2d | ✅ 新建、改优先级、删除与撤销均验证 |
 | M5 | 收件箱/搜索/子任务/已完成页 | 2d | — |
 | M6 | 重复任务推进 | 1d | `+1w` 完成后日期推进一周 |
 | M7 | 精确提醒：闹钟表、权限引导、通知动作、开机重排 | 3d | 到点弹出，勾掉后不再响 |
 | M8 | 清单增删改排序 + 撤销 | 1.5d | 拖拽后 Emacs 里结构正确 |
 
-合计约 15 人日，兼职 3 周左右。
+M0–M4 已完成。剩余 M5–M8 约 7.5 人日。
 
 ## 10. 测试与验收
 
@@ -291,3 +287,8 @@ avdmanager create avd -n gtd35 -k "system-images;android-35;google_apis;arm64-v8
 - 脚手架：`:orgmode` + `:app` 双模块，版本目录，Gradle wrapper，GitHub Actions（`gradlew :orgmode:test :app:assembleDebug`）。
 - 应用包名 `dev.orgtd`，GPL-3.0-or-later。
 - M0 已在 `emulator-5554` 上验证：4 tab、分段控件、空状态、FAB。
+- M1：`orgmode` 行级保真解析器，25 个 JUnit 测试；真实 `gtd.org` 往返字节相同，目标行变更黄金比对。
+- M2：SAF 目录授权、`gtd.org` 读取、今天/本周/全部未完成三档视图、收件箱、清单、搜索。
+- M3：打勾写回（改关键字 + 插 `CLOSED` + 懒注入 `:ID:`）、写前 hash 校验、`gtd.org.bak` 备份；模拟器实测 `diff` 只包含预期行。
+- M4：FAB 新建（标题 + 今天/明天）、详情面板（标题/日期/优先级/删除）、删除后 snackbar 撤销。
+- 验证方式：模拟器内走完「选目录 → 读 8 条 → 打勾 → 拉回文件 diff → 新建 → 改优先级 → 删除 → 撤销」，全部通过。
