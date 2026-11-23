@@ -63,6 +63,7 @@ data class UiState(
     val lists: List<ListUi> = emptyList(),
     val settings: SettingsUi = SettingsUi(),
     val sourceLabel: String = "",
+    val offline: Boolean = false,
 ) {
     val today: List<TaskUi>
         get() = tasks.filter { !it.done && it.date != null && !it.date.isAfter(LocalDate.now()) }
@@ -78,8 +79,14 @@ data class UiState(
 
     val ungrouped: List<TaskUi> get() = tasks.filter { it.listName == null }
 
+    /** 只展示最近 30 天完成的，避免列表无限增长；更早的属于归档范畴。 */
     val completed: List<TaskUi>
-        get() = tasks.filter { it.done }.sortedByDescending { it.closed }
+        get() {
+            val cutoff = LocalDate.now().minusDays(30)
+            return tasks.filter { task ->
+                task.done && (task.closed == null || !task.closed.toLocalDate().isBefore(cutoff))
+            }.sortedByDescending { it.closed }
+        }
 }
 
 class TaskViewModel(app: Application) : AndroidViewModel(app) {
@@ -180,7 +187,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 } else {
                     lastText = snapshot.text
-                    apply(OrgDocument.parse(snapshot.text), src.label)
+                    apply(OrgDocument.parse(snapshot.text), src.label, offline = snapshot.fromCache)
                 }
             }.onFailure { error ->
                 _state.update {
@@ -350,6 +357,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
                 tasks = tasks,
                 lists = TaskMapper.toLists(doc, tasks),
                 sourceLabel = src.label,
+                offline = snapshot.fromCache,
             )
         }
     }
@@ -358,7 +366,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------------------------------------------------------------- 映射
 
-    private fun apply(doc: OrgDocument, sourceLabel: String) {
+    private fun apply(doc: OrgDocument, sourceLabel: String, offline: Boolean = false) {
         val tasks = TaskMapper.toTasks(doc)
         _state.update {
             it.copy(
@@ -368,6 +376,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
                 tasks = tasks,
                 lists = TaskMapper.toLists(doc, tasks),
                 sourceLabel = sourceLabel,
+                offline = offline,
             )
         }
         viewModelScope.launch(Dispatchers.IO) {

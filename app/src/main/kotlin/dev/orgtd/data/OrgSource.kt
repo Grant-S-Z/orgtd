@@ -3,12 +3,15 @@ package dev.orgtd.data
 import android.content.Context
 import android.net.Uri
 import java.io.File
+import java.io.IOException
 
 /** 一次读取的结果；[etag] / [lastModified] 用于写回时做并发校验。 */
 data class Snapshot(
     val text: String,
     val etag: String? = null,
     val lastModified: String? = null,
+    /** true 表示网络不通，内容来自本地缓存。 */
+    val fromCache: Boolean = false,
 )
 
 /**
@@ -53,9 +56,36 @@ class RemoteSource(
 
     override val label: String = "坚果云 WebDAV"
 
-    override fun read(): Snapshot? = client.get()?.let { Snapshot(it.text, it.etag, it.lastModified) }
+    private val cacheDir = File(context.filesDir, "cache")
+    private val cacheFile = File(cacheDir, fileName)
+    private val metaFile = File(cacheDir, "$fileName.meta")
+
+    /**
+     * 网络失败时回退到上次成功同步的副本，界面会标记「离线」。
+     * 409/412 这类冲突必须原样抛出，不能被缓存吞掉。
+     */
+    override fun read(): Snapshot? {
+        return try {
+            val remote = client.get()
+            if (remote == null) {
+                clearCache()
+                null
+            } else {
+                saveCache(remote)
+                Snapshot(remote.text, remote.etag, remote.lastModified, fromCache = false)
+            }
+        } catch (conflict: ConflictException) {
+            throw conflict
+        } catch (error: IOException) {
+            loadCache() ?: throw error
+        }
+    }
 
     override fun write(text: String, expected: Snapshot?, backupOf: String?): Snapshot? {
+        if (expected?.fromCache == true) {
+            throw IOException("当前是离线副本，无法写回；请等到能联网后刷新")
+        }
+
         // 远端不留 .bak（多一次请求、多一份同步面），改成写本地私有目录
         if (backupOf != null && backupOf != text) {
             runCatching {
@@ -63,8 +93,36 @@ class RemoteSource(
                 File(dir, fileName).writeText(backupOf)
             }
         }
-        return client.put(text, expected?.etag, expected?.lastModified)
-            ?.let { Snapshot(it.text, it.etag, it.lastModified) }
+
+        val remote = client.put(text, expected?.etag, expected?.lastModified)
+            ?: throw IOException("写入失败：服务器没有返回内容")
+        saveCache(remote)
+        return Snapshot(remote.text, remote.etag, remote.lastModified)
+    }
+
+    private fun saveCache(file: RemoteFile) {
+        runCatching {
+            cacheDir.mkdirs()
+            cacheFile.writeText(file.text)
+            metaFile.writeText(file.etag.orEmpty() + "\n" + file.lastModified.orEmpty())
+        }
+    }
+
+    private fun loadCache(): Snapshot? {
+        if (!cacheFile.isFile) return null
+        val text = runCatching { cacheFile.readText() }.getOrNull() ?: return null
+        val meta = runCatching { metaFile.readLines() }.getOrDefault(emptyList())
+        return Snapshot(
+            text = text,
+            etag = meta.getOrNull(0)?.ifBlank { null },
+            lastModified = meta.getOrNull(1)?.ifBlank { null },
+            fromCache = true,
+        )
+    }
+
+    private fun clearCache() {
+        runCatching { cacheFile.delete() }
+        runCatching { metaFile.delete() }
     }
 }
 

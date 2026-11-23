@@ -179,6 +179,9 @@ fun OrgtdApp(
                 .padding(innerPadding),
         ) {
             state.error?.let { message -> ErrorBar(message, onDismissError) }
+            if (state.offline) {
+                OfflineBanner(onRetry = onRefresh)
+            }
             if (state.folderSelected && !exactAlarmGranted) {
                 ExactAlarmBanner(onRequestExactAlarm)
             }
@@ -568,6 +571,25 @@ private fun SectionHeader(name: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
     )
+}
+
+@Composable
+private fun OfflineBanner(onRetry: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.tertiaryContainer)
+            .padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "离线：显示上次同步的副本，改动不会保存",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onTertiaryContainer,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onRetry) { Text("重试") }
+    }
 }
 
 @Composable
