@@ -1,0 +1,21 @@
+# Android
+*.iml
+.gradle/
+build/
+.idea/
+local.properties
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# 签名材料，永远不要进仓库
+*.jks
+*.keystore
+keystore.properties
+
+# macOS
+.DS_Store
+
+# 本机会话工具
+.agent-shell/
