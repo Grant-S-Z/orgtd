@@ -191,9 +191,12 @@ SAF 没有 inotify。三层兜底：
 
 ## 12. 环境准备（本机当前全部缺失）
 
+`openjdk@21` 用 formula 而非 `temurin` cask：formula 是 keg-only 解压安装，不需要管理员密码；cask 会跑 pkg 安装器要 sudo。
+
 ```bash
-brew install --cask temurin@21 android-commandlinetools
-export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+brew install openjdk@21
+brew install --cask android-commandlinetools
+export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
 export ANDROID_HOME="$HOME/Library/Android/sdk"
 export PATH="/opt/homebrew/share/android-commandlinetools/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
 
