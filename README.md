@@ -4,7 +4,9 @@
 
 > 状态：M0–M8 全部完成——读取、写回、编辑、重复任务、清单管理、精确提醒都已实现。设计文档见 [docs/plans/2026-11-24-orgtd-design.md](docs/plans/2026-11-24-orgtd-design.md)。
 
-![今天](docs/images/screenshot-today.png)
+| 林间绿（默认） | 海盐蓝 | 琥珀暖沙 |
+|---|---|---|
+| ![林间绿](docs/images/screenshot-today.png) | ![海盐蓝](docs/images/theme-ocean-light.png) | ![琥珀暖沙](docs/images/theme-amber-light.png) |
 
 ## 它解决什么
 
@@ -49,6 +51,16 @@ Emacs (Mac)  ──sync──  坚果云 (dav.jianguoyun.com/dav/)
 ## 保真怎么做到的
 
 文档内部是**原始行数组**，解析只产生只读索引；所有修改都是「改写/插入/删除某几行」。没有「重新序列化整个文件」的路径，所以未触及的行不可能被改动。测试里的黄金比对就是拿真实 `gtd.org` 逐字节比。
+
+## 主题
+
+五套 Material 3 配色，每套都有 Light / Dark：**林间绿**（默认）、**海盐蓝**、**琥珀暖沙**、**鸢尾紫**、**石墨灰**；Android 12+ 还多一个**跟随壁纸**的动态取色。
+
+外观三选一：跟随系统 / 浅色 / 深色。全部在设置面板里即点即换，选择存在本地偏好里，不写进 org 文件。
+
+配色只手工定角色色（primary / secondary / tertiary 及容器、surface、outline），error 系列沿用 Material 3 基线，避免每套主题都要单独核对对比度。
+
+![深色模式](docs/images/theme-ocean-dark.png)
 
 ## 关键约定
 

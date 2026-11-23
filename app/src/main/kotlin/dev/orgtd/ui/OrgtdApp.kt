@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import dev.orgtd.ListUi
+import dev.orgtd.data.DarkMode
 import dev.orgtd.TaskUi
 import dev.orgtd.UiState
 import java.time.LocalDate
@@ -104,6 +105,8 @@ fun OrgtdApp(
     onDeleteList: (Int) -> Unit,
     onMoveList: (Int, Int) -> Unit,
     onSaveWebDav: (String, String, String) -> Unit,
+    onSetTheme: (String) -> Unit,
+    onSetDarkMode: (DarkMode) -> Unit,
     onDismissError: () -> Unit,
 ) {
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -237,6 +240,8 @@ fun OrgtdApp(
                 onSaveWebDav(url, user, password)
                 showSettings = false
             },
+            onSetTheme = onSetTheme,
+            onSetDarkMode = onSetDarkMode,
         )
     }
 

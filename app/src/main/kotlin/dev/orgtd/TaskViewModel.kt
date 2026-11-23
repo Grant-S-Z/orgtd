@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dev.orgtd.data.DarkMode
 import dev.orgtd.data.OrgPrefs
 import dev.orgtd.data.OrgSource
 import dev.orgtd.data.SecureStore
@@ -49,6 +50,8 @@ data class SettingsUi(
     val webDavUser: String = "",
     val hasPassword: Boolean = false,
     val localFolderChosen: Boolean = false,
+    val themeId: String = OrgPrefs.DEFAULT_THEME,
+    val darkMode: DarkMode = DarkMode.SYSTEM,
 )
 
 data class UiState(
@@ -102,6 +105,8 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         webDavUser = prefs.webDavUser,
         hasPassword = SecureStore.password(getApplication()).isNotBlank(),
         localFolderChosen = prefs.treeUri != null,
+        themeId = prefs.themeId,
+        darkMode = prefs.darkMode,
     )
 
     private fun publishSettings() {
@@ -127,6 +132,16 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         lastText = null
         publishSettings()
         refresh()
+    }
+
+    fun setTheme(themeId: String) {
+        prefs.themeId = themeId
+        publishSettings()
+    }
+
+    fun setDarkMode(mode: DarkMode) {
+        prefs.darkMode = mode
+        publishSettings()
     }
 
     fun useLocal() {

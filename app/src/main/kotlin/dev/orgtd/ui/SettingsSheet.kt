@@ -1,13 +1,22 @@
 package dev.orgtd.ui
 
+import android.os.Build
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -23,7 +32,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.orgtd.SettingsUi
+import dev.orgtd.data.DarkMode
 import dev.orgtd.data.StorageMode
+import dev.orgtd.ui.theme.OrgtdPalettes
+import dev.orgtd.ui.theme.ThemePalette
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,22 +44,68 @@ fun SettingsSheet(
     onDismiss: () -> Unit,
     onPickFolder: () -> Unit,
     onSaveWebDav: (String, String, String) -> Unit,
+    onSetTheme: (String) -> Unit,
+    onSetDarkMode: (DarkMode) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scroll = rememberScrollState()
 
     var mode by rememberSaveable { mutableStateOf(settings.mode) }
     var url by rememberSaveable { mutableStateOf(settings.webDavUrl) }
     var user by rememberSaveable { mutableStateOf(settings.webDavUser) }
     var password by rememberSaveable { mutableStateOf("") }
 
+    val palettes: List<ThemePalette> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        listOf(OrgtdPalettes.dynamicEntry) + OrgtdPalettes.all
+    } else {
+        OrgtdPalettes.all
+    }
+
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(scroll)
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            Text("主题", style = MaterialTheme.typography.titleMedium)
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                palettes.forEach { palette ->
+                    FilterChip(
+                        selected = settings.themeId == palette.id,
+                        onClick = { onSetTheme(palette.id) },
+                        label = { Text(palette.name) },
+                        leadingIcon = {
+                            Box(
+                                Modifier
+                                    .size(14.dp)
+                                    .background(palette.seed, CircleShape),
+                            )
+                        },
+                    )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    DarkMode.SYSTEM to "跟随系统",
+                    DarkMode.LIGHT to "浅色",
+                    DarkMode.DARK to "深色",
+                ).forEach { (modeValue, label) ->
+                    FilterChip(
+                        selected = settings.darkMode == modeValue,
+                        onClick = { onSetDarkMode(modeValue) },
+                        label = { Text(label) },
+                    )
+                }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
             Text("存储位置", style = MaterialTheme.typography.titleMedium)
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

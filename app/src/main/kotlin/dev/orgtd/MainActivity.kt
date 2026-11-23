@@ -12,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,6 +25,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.orgtd.data.DarkMode
 import dev.orgtd.ui.OrgtdApp
 import dev.orgtd.ui.theme.OrgtdTheme
 
@@ -34,9 +36,16 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            OrgtdTheme {
-                val viewModel: TaskViewModel = viewModel()
-                val state by viewModel.state.collectAsStateWithLifecycle()
+            val viewModel: TaskViewModel = viewModel()
+            val state by viewModel.state.collectAsStateWithLifecycle()
+
+            val darkTheme = when (state.settings.darkMode) {
+                DarkMode.LIGHT -> false
+                DarkMode.DARK -> true
+                DarkMode.SYSTEM -> isSystemInDarkTheme()
+            }
+
+            OrgtdTheme(themeId = state.settings.themeId, darkTheme = darkTheme) {
                 val context = LocalContext.current
 
                 val picker = rememberLauncherForActivityResult(
@@ -105,6 +114,8 @@ class MainActivity : ComponentActivity() {
                     onDeleteList = viewModel::deleteList,
                     onMoveList = viewModel::moveList,
                     onSaveWebDav = viewModel::saveWebDav,
+                    onSetTheme = viewModel::setTheme,
+                    onSetDarkMode = viewModel::setDarkMode,
                     onDismissError = viewModel::clearError,
                 )
             }

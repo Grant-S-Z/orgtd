@@ -345,3 +345,15 @@ avdmanager create avd -n gtd35 -k "system-images;android-35;google_apis;arm64-v8
 | `RECEIVE_BOOT_COMPLETED` | 开机重排闹钟 | 安装即授予 |
 
 不申请存储权限：文件访问全部走 SAF 或网络。
+
+## 21. 主题系统（2026-11-24）
+
+界面本来就建在 Material 3 组件上（NavigationBar / TopAppBar / FilterChip / FAB / ModalBottomSheet），这次补的是可控的配色：
+
+- `OrgtdPalettes` 提供 5 套手工配色：林间绿（默认）、海盐蓝、琥珀暖沙、鸢尾紫、石墨灰，每套含 Light/Dark 两个 `ColorScheme`。
+- 只覆盖角色色（primary/secondary/tertiary 及容器、background/surface、surfaceVariant、outline），`error` 系列沿用 M3 基线；容器色手工指定，避免深浅模式下对比度失衡。
+- Android 12+ 额外提供「跟随壁纸」：走 `dynamicLightColorScheme` / `dynamicDarkColorScheme`，旧版本自动回落到林间绿。
+- 外观三档：跟随系统 / 浅色 / 深色，存在 `OrgPrefs`，不进 org 文件。
+- 设置面板顶部即主题区，色块用每套配色的 seed 色画圆点；切换即时生效，无需重启。
+
+验证：模拟器上分别切到海盐蓝浅色、海盐蓝深色、琥珀暖沙浅色并截图，FAB、选中态、导航栏、分隔线均跟随配色变化。
