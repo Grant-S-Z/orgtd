@@ -70,6 +70,10 @@ class AppStrings(private val en: Boolean) {
     val listEmpty = s("这个清单还没有任务\n点右下角 + 添加", "No tasks in this list yet\nTap + to add one")
 
     // 设置
+    val styleLabel = s("界面风格", "Style")
+    val styleMaterial = "Material"
+    val styleApple = "Apple"
+    val appleThemeNote = s("Apple 风格使用 iOS 系统蓝配色", "Apple style uses the iOS system blue palette")
     val theme = s("主题", "Theme")
     val appearance = s("外观", "Appearance")
     val followSystem = s("跟随系统", "System")

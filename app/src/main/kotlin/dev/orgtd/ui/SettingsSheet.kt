@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.orgtd.Language
+import dev.orgtd.UiStyle
 import dev.orgtd.SettingsUi
 import dev.orgtd.data.DarkMode
 import dev.orgtd.data.StorageMode
@@ -53,6 +54,7 @@ fun SettingsSheet(
     onSetTheme: (String) -> Unit,
     onSetDarkMode: (DarkMode) -> Unit,
     onSetLanguage: (Language) -> Unit,
+    onSetUiStyle: (UiStyle) -> Unit,
 ) {
     val strings = LocalStrings.current
     val sheetState = rememberBottomSheetState(
@@ -81,20 +83,42 @@ fun SettingsSheet(
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(strings.theme, style = MaterialTheme.typography.titleMedium)
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                palettes.forEach { palette ->
-                    FilterChip(
-                        selected = settings.themeId == palette.id,
-                        onClick = { onSetTheme(palette.id) },
-                        label = { Text(palette.displayName(strings.isEnglish)) },
-                        leadingIcon = {
-                            Box(Modifier.size(14.dp).background(palette.seed, CircleShape))
-                        },
-                    )
+            Text(strings.styleLabel, style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = settings.uiStyle == UiStyle.MATERIAL,
+                    onClick = { onSetUiStyle(UiStyle.MATERIAL) },
+                    label = { Text(strings.styleMaterial) },
+                )
+                FilterChip(
+                    selected = settings.uiStyle == UiStyle.APPLE,
+                    onClick = { onSetUiStyle(UiStyle.APPLE) },
+                    label = { Text(strings.styleApple) },
+                )
+            }
+
+            if (settings.uiStyle == UiStyle.APPLE) {
+                Text(
+                    text = strings.appleThemeNote,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(strings.theme, style = MaterialTheme.typography.titleMedium)
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    palettes.forEach { palette ->
+                        FilterChip(
+                            selected = settings.themeId == palette.id,
+                            onClick = { onSetTheme(palette.id) },
+                            label = { Text(palette.displayName(strings.isEnglish)) },
+                            leadingIcon = {
+                                Box(Modifier.size(14.dp).background(palette.seed, CircleShape))
+                            },
+                        )
+                    }
                 }
             }
 

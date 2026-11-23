@@ -26,7 +26,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import dev.orgtd.UiStyle
 import dev.orgtd.data.DarkMode
+import dev.orgtd.ui.LocalAppleStyle
 import dev.orgtd.ui.LocalStrings
 import dev.orgtd.ui.OrgtdApp
 import dev.orgtd.ui.theme.OrgtdTheme
@@ -47,7 +49,10 @@ class MainActivity : ComponentActivity() {
                 DarkMode.SYSTEM -> isSystemInDarkTheme()
             }
 
-            OrgtdTheme(themeId = state.settings.themeId, darkTheme = darkTheme) {
+            val appleStyle = state.settings.uiStyle == UiStyle.APPLE
+            val themeId = if (appleStyle) "apple" else state.settings.themeId
+
+            OrgtdTheme(themeId = themeId, darkTheme = darkTheme) {
                 val context = LocalContext.current
 
                 val picker = rememberLauncherForActivityResult(
@@ -94,7 +99,10 @@ class MainActivity : ComponentActivity() {
                     Strings.resolve(state.settings.language)
                 }
 
-                CompositionLocalProvider(LocalStrings provides strings) {
+                CompositionLocalProvider(
+                    LocalStrings provides strings,
+                    LocalAppleStyle provides appleStyle,
+                ) {
                 OrgtdApp(
                     state = state,
                     fileName = viewModel.fileName,
@@ -125,6 +133,7 @@ class MainActivity : ComponentActivity() {
                     onSetTheme = viewModel::setTheme,
                     onSetDarkMode = viewModel::setDarkMode,
                     onSetLanguage = viewModel::setLanguage,
+                    onSetUiStyle = viewModel::setUiStyle,
                     onDismissError = viewModel::clearError,
                 )
                 }

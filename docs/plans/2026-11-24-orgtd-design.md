@@ -402,3 +402,23 @@ material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案�
 命名：`收件箱` 在两种语言下统一叫 **Inbox**，避免中文用户把它理解成邮箱。
 
 验证：英文系统 locale 下首次启动即为英文（Today / This week / Done / Inbox）；在设置里切到「中文」后立即变成「今天 / 本周 / 已完成 / Inbox」，日期显示 `11月22日 · 重复 +1d`。
+
+## 25. Apple（iOS）界面风格（2026-11-24）
+
+设置里新增「界面风格」：Material / Apple，默认 Apple。实现方式不是整体替换，而是用 `LocalAppleStyle` CompositionLocal 让组件自己选择外观，Material 版不受影响：
+
+- **配色**：新增 `apple` 调色板（不进入 Material 主题列表），浅色页面底 `#F2F2F7`、卡片 `#FFFFFF`、分隔线 `#C6C6C8`、强调色 `#007AFF`；深色底 `#000000`、卡片 `#1C1C1E`。选 Apple 时强制使用它，主题选择器隐藏并提示原因。
+- **列表**：`IosGroup`（12dp 圆角白卡片 + 16dp 边距）+ `IosDivider`（左侧 52dp 缩进、0.5dp）；任务行去掉 Material 的整行分割线。
+- **勾选框**：`IosCheckbox`，24dp 圆形描边，选中填蓝 + 白勾。
+- **分段控件**：`IosSegmented`，胶囊底 + 白色滑块，替代 FilterChip。
+- **底栏**：`IosTabBar`，顶部 0.5dp 细线、扁平图标 + 小标签、选中项为 System Blue，替代 M3 NavigationBar 的胶囊指示器。
+
+**Bug 检查（模拟器 API 35）**：
+
+- 全新安装（清除数据）→ 默认 Apple + 跟随系统语言，授权目录后任务正常渲染；
+- 两套风格来回切换，列表、底栏、分段控件均正确重绘；
+- Apple 风格下勾选重复任务，文件正确推进（11-22 → 11-25）并注入 `:ID:`；
+- 清单页分组卡片、清单详情、设置面板（Apple 时隐藏主题、显示说明）均正常；
+- logcat 无 FATAL / 未捕获异常。
+
+已知小问题：iOS 勾选框的视觉尺寸 24dp，点击热区也接近 24dp，比 Android 建议的 48dp 小；后续可以用外层 padding 扩大热区而不改视觉尺寸。FAB 仍是 Material 的圆角方形，尚未改成 iOS 圆形浮钮。

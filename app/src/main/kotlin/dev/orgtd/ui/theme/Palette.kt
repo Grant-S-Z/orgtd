@@ -211,9 +211,73 @@ object OrgtdPalettes {
         ),
     )
 
+
+    /** iOS 系统色：纯白卡片 + 灰底、System Blue。只由「Apple」界面风格使用。 */
+    val apple = ThemePalette(
+        id = "apple",
+        name = "Apple",
+        nameEn = "Apple",
+        seed = Color(0xFF007AFF),
+        light = lightColorScheme(
+            primary = Color(0xFF007AFF),
+            onPrimary = Color(0xFFFFFFFF),
+            primaryContainer = Color(0xFFD6E4FF),
+            onPrimaryContainer = Color(0xFF001A41),
+            secondary = Color(0xFF5A5F66),
+            onSecondary = Color(0xFFFFFFFF),
+            secondaryContainer = Color(0xFFE5E5EA),
+            onSecondaryContainer = Color(0xFF1C1C1E),
+            tertiary = Color(0xFF3A7BD5),
+            onTertiary = Color(0xFFFFFFFF),
+            tertiaryContainer = Color(0xFFDCE8FF),
+            onTertiaryContainer = Color(0xFF001A41),
+            background = Color(0xFFF2F2F7),
+            onBackground = Color(0xFF1C1C1E),
+            surface = Color(0xFFFFFFFF),
+            onSurface = Color(0xFF1C1C1E),
+            surfaceVariant = Color(0xFFE5E5EA),
+            onSurfaceVariant = Color(0xFF6C6C70),
+            outline = Color(0xFFC6C6C8),
+            outlineVariant = Color(0xFFC6C6C8),
+            surfaceContainerLowest = Color(0xFFFFFFFF),
+            surfaceContainerLow = Color(0xFFFFFFFF),
+            surfaceContainer = Color(0xFFFFFFFF),
+            surfaceContainerHigh = Color(0xFFFFFFFF),
+            surfaceContainerHighest = Color(0xFFF2F2F7),
+        ),
+        dark = darkColorScheme(
+            primary = Color(0xFF0A84FF),
+            onPrimary = Color(0xFFFFFFFF),
+            primaryContainer = Color(0xFF004A99),
+            onPrimaryContainer = Color(0xFFD6E4FF),
+            secondary = Color(0xFFAEAEB2),
+            onSecondary = Color(0xFF1C1C1E),
+            secondaryContainer = Color(0xFF2C2C2E),
+            onSecondaryContainer = Color(0xFFE5E5EA),
+            tertiary = Color(0xFF64A8FF),
+            onTertiary = Color(0xFF00213F),
+            tertiaryContainer = Color(0xFF0A3A6B),
+            onTertiaryContainer = Color(0xFFDCE8FF),
+            background = Color(0xFF000000),
+            onBackground = Color(0xFFFFFFFF),
+            surface = Color(0xFF1C1C1E),
+            onSurface = Color(0xFFFFFFFF),
+            surfaceVariant = Color(0xFF2C2C2E),
+            onSurfaceVariant = Color(0xFFAEAEB2),
+            outline = Color(0xFF38383A),
+            outlineVariant = Color(0xFF38383A),
+            surfaceContainerLowest = Color(0xFF000000),
+            surfaceContainerLow = Color(0xFF1C1C1E),
+            surfaceContainer = Color(0xFF1C1C1E),
+            surfaceContainerHigh = Color(0xFF2C2C2E),
+            surfaceContainerHighest = Color(0xFF3A3A3C),
+        ),
+    )
+
     val all: List<ThemePalette> = listOf(forest, ocean, amber, iris, graphite)
 
-    fun byId(id: String): ThemePalette = all.firstOrNull { it.id == id } ?: forest
+    fun byId(id: String): ThemePalette =
+        if (id == apple.id) apple else all.firstOrNull { it.id == id } ?: forest
 
     /** 「跟随壁纸」只在 Android 12+ 有意义。 */
     val dynamicEntry = ThemePalette(

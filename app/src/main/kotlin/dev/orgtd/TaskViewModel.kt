@@ -62,6 +62,7 @@ data class SettingsUi(
     val themeId: String = OrgPrefs.DEFAULT_THEME,
     val darkMode: DarkMode = DarkMode.SYSTEM,
     val language: Language = Language.SYSTEM,
+    val uiStyle: UiStyle = UiStyle.APPLE,
 )
 
 data class UiState(
@@ -126,6 +127,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         themeId = prefs.themeId,
         darkMode = prefs.darkMode,
         language = prefs.language,
+        uiStyle = prefs.uiStyle,
     )
 
     private fun publishSettings() {
@@ -160,6 +162,11 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setDarkMode(mode: DarkMode) {
         prefs.darkMode = mode
+        publishSettings()
+    }
+
+    fun setUiStyle(style: UiStyle) {
+        prefs.uiStyle = style
         publishSettings()
     }
 

@@ -2,6 +2,7 @@ package dev.orgtd.data
 
 import android.content.Context
 import dev.orgtd.Language
+import dev.orgtd.UiStyle
 
 enum class StorageMode { LOCAL, WEBDAV }
 
@@ -36,6 +37,11 @@ class OrgPrefs(context: Context) {
         get() = prefs.getString(KEY_THEME, DEFAULT_THEME) ?: DEFAULT_THEME
         set(value) = prefs.edit().putString(KEY_THEME, value).apply()
 
+    var uiStyle: UiStyle
+        get() = UiStyle.entries.firstOrNull { it.name == prefs.getString(KEY_UI_STYLE, null) }
+            ?: UiStyle.APPLE
+        set(value) = prefs.edit().putString(KEY_UI_STYLE, value.name).apply()
+
     var language: Language
         get() = Language.entries.firstOrNull { it.name == prefs.getString(KEY_LANGUAGE, null) }
             ?: Language.SYSTEM
@@ -59,5 +65,6 @@ class OrgPrefs(context: Context) {
         private const val KEY_THEME = "theme_id"
         private const val KEY_DARK_MODE = "dark_mode"
         private const val KEY_LANGUAGE = "language"
+        private const val KEY_UI_STYLE = "ui_style"
     }
 }

@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +45,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -70,6 +72,7 @@ import dev.orgtd.ListUi
 import dev.orgtd.Language
 import dev.orgtd.data.DarkMode
 import dev.orgtd.TaskUi
+import dev.orgtd.UiStyle
 import dev.orgtd.matches
 import dev.orgtd.UiState
 import java.time.LocalDate
@@ -125,6 +128,7 @@ fun OrgtdApp(
     onSetTheme: (String) -> Unit,
     onSetDarkMode: (DarkMode) -> Unit,
     onSetLanguage: (Language) -> Unit,
+    onSetUiStyle: (UiStyle) -> Unit,
     onDismissError: () -> Unit,
 ) {
     val strings = LocalStrings.current
@@ -196,7 +200,9 @@ fun OrgtdApp(
         },
         bottomBar = {
             if (!inDetail) {
-                NavigationBar {
+                if (LocalAppleStyle.current) {
+                    IosTabBar(selected = tabIndex, onSelect = { tabIndex = it })
+                } else NavigationBar {
                     Tab.entries.forEachIndexed { index, item ->
                         NavigationBarItem(
                             selected = tabIndex == index,
@@ -326,6 +332,7 @@ fun OrgtdApp(
             onSetTheme = onSetTheme,
             onSetDarkMode = onSetDarkMode,
             onSetLanguage = onSetLanguage,
+            onSetUiStyle = onSetUiStyle,
         )
     }
 
@@ -456,6 +463,13 @@ private fun InboxTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> U
     TaskList(state.ungrouped.filter { !it.done }, LocalDate.now(), onToggle, onOpen, strings.inboxEmpty)
 }
 
+private class ListRowModel(
+    val name: String,
+    val open: Int,
+    val actions: ListActions?,
+    val onClick: () -> Unit,
+)
+
 @Composable
 private fun ListsTab(
     state: UiState,
@@ -472,34 +486,59 @@ private fun ListsTab(
         return
     }
 
-    LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+    val rows = buildList {
         if (state.ungrouped.isNotEmpty()) {
-            item(key = "ungrouped") {
-                ListRow(
+            add(
+                ListRowModel(
                     name = strings.ungrouped,
                     open = state.ungrouped.count { !it.done },
                     actions = null,
                     onClick = onOpenUngrouped,
-                )
-            }
-        }
-        itemsIndexed(lists, key = { _, list -> list.line }) { index, list ->
-            ListRow(
-                name = list.name,
-                open = list.open,
-                actions = ListActions(
-                    canUp = index > 0,
-                    canDown = index < lists.lastIndex,
-                    onUp = { onMove(list.line, -1) },
-                    onDown = { onMove(list.line, 1) },
-                    onRename = { onRename(list.line) },
-                    onDelete = { onDelete(list.line) },
                 ),
-                onClick = { onOpenList(list) },
+            )
+        }
+        lists.forEachIndexed { index, list ->
+            add(
+                ListRowModel(
+                    name = list.name,
+                    open = list.open,
+                    actions = ListActions(
+                        canUp = index > 0,
+                        canDown = index < lists.lastIndex,
+                        onUp = { onMove(list.line, -1) },
+                        onDown = { onMove(list.line, 1) },
+                        onRename = { onRename(list.line) },
+                        onDelete = { onDelete(list.line) },
+                    ),
+                    onClick = { onOpenList(list) },
+                ),
             )
         }
     }
+
+    if (LocalAppleStyle.current) {
+        LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+            item {
+                IosGroup {
+                    rows.forEachIndexed { index, row ->
+                        ListRow(row.name, row.open, row.actions, row.onClick)
+                        if (index != rows.lastIndex) IosDivider()
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+        rows.forEachIndexed { index, row ->
+            item(key = if (row.actions == null) "ungrouped" else "list-$index") {
+                ListRow(row.name, row.open, row.actions, row.onClick)
+            }
+        }
+    }
 }
+
 
 @Composable
 private fun SearchTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> Unit) {
@@ -529,6 +568,14 @@ private fun SearchTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> 
 @Composable
 private fun RangeSelector(selected: Int, onSelect: (Int) -> Unit) {
     val strings = LocalStrings.current
+    if (LocalAppleStyle.current) {
+        IosSegmented(
+            options = Range.entries.map { it.label(strings) },
+            selected = selected,
+            onSelect = onSelect,
+        )
+        return
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -558,6 +605,21 @@ private fun TaskList(
         EmptyHint(emptyText)
         return
     }
+
+    if (LocalAppleStyle.current) {
+        LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+            item {
+                IosGroup {
+                    tasks.forEachIndexed { index, task ->
+                        TaskRow(task, today, onToggle, onOpen)
+                        if (index != tasks.lastIndex) IosDivider()
+                    }
+                }
+            }
+        }
+        return
+    }
+
     LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
         items(tasks, key = { it.line }) { task -> TaskRow(task, today, onToggle, onOpen) }
     }
@@ -572,6 +634,42 @@ private fun TaskRow(
 ) {
     val strings = LocalStrings.current
     val overdue = !task.done && task.date != null && task.date.isBefore(today)
+
+    if (LocalAppleStyle.current) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onOpen(task.line) }
+                .padding(
+                    start = 16.dp + ((task.level - 1).coerceAtLeast(0) * 14).dp,
+                    end = 16.dp,
+                    top = 11.dp,
+                    bottom = 11.dp,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IosCheckbox(checked = task.done) { onToggle(task.line) }
+            androidx.compose.foundation.layout.Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = task.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textDecoration = if (task.done) TextDecoration.LineThrough else null,
+                    color = if (task.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                )
+                val meta = taskMeta(task, today, strings)
+                if (meta.isNotEmpty()) {
+                    Text(
+                        text = meta.joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            task.priority?.let { PriorityBadge(it) }
+        }
+        return
+    }
 
     Row(
         modifier = Modifier
@@ -592,14 +690,7 @@ private fun TaskRow(
                 textDecoration = if (task.done) TextDecoration.LineThrough else null,
                 color = if (task.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             )
-            val meta = buildList {
-                if (!task.done) task.date?.let { add(strings.formatDate(it, today)) }
-                task.closed?.let { add(strings.completedOn(strings.formatDate(it.toLocalDate(), today))) }
-                task.repeater?.let { add(strings.repeats(it)) }
-                if (task.children > 0) add(strings.subtasks(task.children))
-                task.listName?.let { add(it) }
-                if (task.tags.isNotEmpty()) add(task.tags.joinToString(" ") { "#$it" })
-            }
+            val meta = taskMeta(task, today, strings)
             if (meta.isNotEmpty()) {
                 Text(
                     text = meta.joinToString(" · "),
@@ -611,6 +702,15 @@ private fun TaskRow(
         task.priority?.let { PriorityBadge(it) }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+}
+
+private fun taskMeta(task: TaskUi, today: LocalDate, strings: AppStrings): List<String> = buildList {
+    if (!task.done) task.date?.let { add(strings.formatDate(it, today)) }
+    task.closed?.let { add(strings.completedOn(strings.formatDate(it.toLocalDate(), today))) }
+    task.repeater?.let { add(strings.repeats(it)) }
+    if (task.children > 0) add(strings.subtasks(task.children))
+    task.listName?.let { add(it) }
+    if (task.tags.isNotEmpty()) add(task.tags.joinToString(" ") { "#$it" })
 }
 
 @Composable
@@ -690,7 +790,9 @@ private fun ListRow(
             }
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    if (!LocalAppleStyle.current) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    }
 }
 
 @Composable
@@ -811,6 +913,45 @@ private fun MissingFile(fileName: String, onPickFolder: () -> Unit) {
 private fun Loading() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
+    }
+}
+
+@Composable
+private fun IosTabBar(selected: Int, onSelect: (Int) -> Unit) {
+    val strings = LocalStrings.current
+    Surface(color = MaterialTheme.colorScheme.surface) {
+        Column {
+            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(top = 6.dp, bottom = 4.dp),
+            ) {
+                Tab.entries.forEachIndexed { index, tab ->
+                    val active = index == selected
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onSelect(index) }
+                            .padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(
+                            imageVector = tab.icon,
+                            contentDescription = null,
+                            tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp),
+                        )
+                        Text(
+                            text = tab.label(strings),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
