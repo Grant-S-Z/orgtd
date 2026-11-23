@@ -278,7 +278,7 @@ class OrgDocumentTest {
 
         val appended = doc.appendTask("订机票", "id-3", list = work)
         assertEquals(
-            "* 工作\n** TODO 写周报\n** DONE 交报销\n* TODO 订机票\n  :PROPERTIES:\n  :ID: id-3\n  :END:\n* 生活\n** TODO 买牛奶\n",
+            "* 工作\n** TODO 写周报\n** DONE 交报销\n** TODO 订机票\n  :PROPERTIES:\n  :ID: id-3\n  :END:\n* 生活\n** TODO 买牛奶\n",
             appended.serialize(),
         )
     }

@@ -58,6 +58,20 @@ class UiStateTest {
     }
 
     @Test
+    fun `搜索匹配标题正文与标签`() {
+        val task = task(1, done = false).copy(
+            title = "写周报",
+            body = "先找张三要数据",
+            tags = listOf("工作"),
+        )
+
+        assertTrue(task.matches("周报"))
+        assertTrue(task.matches("张三"))
+        assertTrue(task.matches("工作"))
+        assertTrue(!task.matches("无关"))
+    }
+
+    @Test
     fun `没有完成时间的 DONE 仍然展示`() {
         val state = UiState(tasks = listOf(task(7, done = true, closed = null)))
         assertEquals(listOf(7), state.completed.map { it.line })

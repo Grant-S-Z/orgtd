@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import dev.orgtd.ListUi
 import dev.orgtd.data.DarkMode
 import dev.orgtd.TaskUi
+import dev.orgtd.matches
 import dev.orgtd.UiState
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -500,10 +501,7 @@ private fun SearchTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> 
         if (query.isBlank()) {
             EmptyHint("输入关键词开始搜索")
         } else {
-            val hits = state.tasks.filter { task ->
-                task.title.contains(query, ignoreCase = true) ||
-                    task.tags.any { it.contains(query, ignoreCase = true) }
-            }
+            val hits = state.tasks.filter { it.matches(query) }
             TaskList(hits, LocalDate.now(), onToggle, onOpen, "没有匹配的任务")
         }
     }

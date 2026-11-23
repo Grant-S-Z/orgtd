@@ -133,8 +133,11 @@ class OrgDocument private constructor(val lines: List<String>) {
         val insertAt = list?.endExclusive?.coerceIn(0, out.size) ?: out.size
         ensureNewlineBefore(out, insertAt)
 
+        val level = if (list != null) list.level + 1 else 1
+        val stars = "*".repeat(level)
+
         val block = ArrayList<String>(5)
-        block += "* TODO $title$nl"
+        block += "$stars TODO $title$nl"
         block += "  :PROPERTIES:$nl"
         block += "  :ID: $id$nl"
         block += "  :END:$nl"

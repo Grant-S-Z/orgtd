@@ -40,9 +40,16 @@ data class TaskUi(
     val closed: LocalDateTime? = null,
     val children: Int = 0,
     val reminderAt: LocalDateTime? = null,
+    val body: String = "",
 )
 
 data class ListUi(val line: Int, val name: String, val open: Int)
+
+/** 搜索匹配标题、正文与标签。 */
+fun TaskUi.matches(query: String): Boolean =
+    title.contains(query, ignoreCase = true) ||
+        body.contains(query, ignoreCase = true) ||
+        tags.any { it.contains(query, ignoreCase = true) }
 
 data class SettingsUi(
     val mode: StorageMode = StorageMode.LOCAL,
