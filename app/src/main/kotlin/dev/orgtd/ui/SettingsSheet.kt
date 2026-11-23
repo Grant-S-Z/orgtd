@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -22,14 +24,16 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.OutlinedSecureTextField
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.orgtd.SettingsUi
 import dev.orgtd.data.DarkMode
@@ -47,13 +51,16 @@ fun SettingsSheet(
     onSetTheme: (String) -> Unit,
     onSetDarkMode: (DarkMode) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
     val scroll = rememberScrollState()
 
     var mode by rememberSaveable { mutableStateOf(settings.mode) }
     var url by rememberSaveable { mutableStateOf(settings.webDavUrl) }
     var user by rememberSaveable { mutableStateOf(settings.webDavUser) }
-    var password by rememberSaveable { mutableStateOf("") }
+    val password = rememberTextFieldState("")
 
     val palettes: List<ThemePalette> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         listOf(OrgtdPalettes.dynamicEntry) + OrgtdPalettes.all
@@ -148,12 +155,10 @@ fun SettingsSheet(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
+                    OutlinedSecureTextField(
+                        state = password,
                         label = { Text(if (settings.hasPassword) "应用密码（留空不修改）" else "应用密码") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
@@ -162,7 +167,7 @@ fun SettingsSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Button(
-                        onClick = { onSaveWebDav(url, user, password) },
+                        onClick = { onSaveWebDav(url, user, password.text.toString()) },
                         enabled = url.isNotBlank() && user.isNotBlank(),
                     ) { Text("保存并连接") }
                 }

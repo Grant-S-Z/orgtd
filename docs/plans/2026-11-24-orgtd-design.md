@@ -287,7 +287,13 @@ avdmanager create avd -n gtd35 -k "system-images;android-35;google_apis;arm64-v8
 2. **compileSdk 有了小版本**：Compose 1.13 要求至少 37.1，`compileSdk = 37` 不够。AGP 9 的 DSL 是 `compileSdk = 37` + `compileSdkMinor = 1`，SDK 包名也变成 `platforms;android-37.1`。
 3. **图标库不再随 material3 传递**：Compose 1.13 起 `material3` 不带 `androidx.compose.material.icons`，需要显式依赖 `material-icons-core:1.7.8`（该工件已冻结在这一版）。
 
-升级后的告警（未处理，均不影响功能）：`EncryptedSharedPreferences`、`rememberModalBottomSheetState`、`PasswordVisualTransformation` 在 2026 年的库中标记为 deprecated；前者需要自己用 Keystore 写 AES-GCM，后两者要换 `BasicSecureTextField` 与新 SheetState API，建议单独一次提交处理。
+升级后出现的三处 deprecation 已全部处理：
+
+1. `EncryptedSharedPreferences`（androidx.security 1.1 起废弃）→ 自己用 Android Keystore 的 AES-256/GCM 加解密，密文格式 `base64(iv):base64(cipher)`，密钥不落盘，`security-crypto` 依赖已删除。
+2. `rememberModalBottomSheetState` → `rememberBottomSheetState(initialValue = Hidden, enabledValues = setOf(Hidden, Expanded))`，语义等价于原来的 `skipPartiallyExpanded = true`。
+3. `PasswordVisualTransformation` → `OutlinedSecureTextField` + `TextFieldState`，系统无障碍层把它识别为真正的密码框（`password=true`）。
+
+代价：旧版 `EncryptedSharedPreferences` 里的密文新代码读不出来，升级后需要重新填一次应用密码。
 
 ### 15.2 关于 Material 3 Expressive
 
