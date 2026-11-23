@@ -43,7 +43,7 @@ class OrgPrefs(context: Context) {
     companion object {
         const val DEFAULT_FILE = "gtd.org"
         const val DEFAULT_DAV_URL = "https://dav.jianguoyun.com/dav/orgtd/gtd.org"
-        const val DEFAULT_THEME = "forest"
+        const val DEFAULT_THEME = "ocean"
 
         private const val KEY_MODE = "mode"
         private const val KEY_TREE_URI = "tree_uri"

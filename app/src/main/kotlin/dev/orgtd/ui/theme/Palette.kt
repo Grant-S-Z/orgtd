@@ -108,7 +108,7 @@ private fun dark(
 object OrgtdPalettes {
 
     const val DYNAMIC = "dynamic"
-    const val DEFAULT = "forest"
+    const val DEFAULT = "ocean"
 
     val forest = ThemePalette(
         id = "forest",

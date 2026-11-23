@@ -36,8 +36,8 @@ yes | sdkmanager --sdk_root="$SDK" --licenses >/dev/null || true
 echo "==> SDK 组件"
 sdkmanager --sdk_root="$SDK" \
   "platform-tools" \
-  "platforms;android-35" \
-  "build-tools;35.0.0" \
+  "platforms;android-37.1" \
+  "build-tools;37.0.0" \
   "emulator" \
   "system-images;android-35;google_apis;arm64-v8a"
 

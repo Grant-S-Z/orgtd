@@ -4,9 +4,9 @@
 
 > 状态：M0–M8 全部完成——读取、写回、编辑、重复任务、清单管理、精确提醒都已实现。设计文档见 [docs/plans/2026-11-24-orgtd-design.md](docs/plans/2026-11-24-orgtd-design.md)。
 
-| 林间绿（默认） | 海盐蓝 | 琥珀暖沙 |
+| 海盐蓝（默认） | 林间绿 | 琥珀暖沙 |
 |---|---|---|
-| ![林间绿](docs/images/screenshot-today.png) | ![海盐蓝](docs/images/theme-ocean-light.png) | ![琥珀暖沙](docs/images/theme-amber-light.png) |
+| ![海盐蓝](docs/images/theme-ocean-light.png) | ![林间绿](docs/images/screenshot-today.png) | ![琥珀暖沙](docs/images/theme-amber-light.png) |
 
 ## 它解决什么
 
@@ -54,7 +54,7 @@ Emacs (Mac)  ──sync──  坚果云 (dav.jianguoyun.com/dav/)
 
 ## 主题
 
-五套 Material 3 配色，每套都有 Light / Dark：**林间绿**（默认）、**海盐蓝**、**琥珀暖沙**、**鸢尾紫**、**石墨灰**；Android 12+ 还多一个**跟随壁纸**的动态取色。
+五套 Material 3 配色，每套都有 Light / Dark：**海盐蓝**（默认）、**林间绿**、**琥珀暖沙**、**鸢尾紫**、**石墨灰**；Android 12+ 还多一个**跟随壁纸**的动态取色。
 
 外观三选一：跟随系统 / 浅色 / 深色。全部在设置面板里即点即换，选择存在本地偏好里，不写进 org 文件。
 
@@ -81,7 +81,7 @@ HarmonyOS 4.2.0 的 Android 兼容层是 **Android 12（API 31）**，4.x 仍完
 
 ## 构建
 
-前置：macOS/Apple Silicon、JDK 21、Android SDK（platform 36 + build-tools 36）。
+前置：macOS/Apple Silicon、JDK 21、Android SDK（platform 37.1 + build-tools 37）。
 
 ```bash
 # 一次性配置 JDK 与 SDK（幂等，可重复执行）
@@ -100,7 +100,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 emulator -avd gtd35 -no-snapshot &
 ```
 
-依赖版本刻意锁在 2025 年的一批：2026 年的 androidx 要求 AGP 9.1+ 与 compileSdk 37，升级路径见设计文档 §15。
+构建底座：AGP 9.5.2 / Gradle 9.9.2 / Kotlin 2.4.21 / compileSdk 37.1 / Compose BOM 2026.11.01。AGP 9 内置 Kotlin 支持，模块里不再需要 `kotlin-android` 插件。
 
 ## 模块
 

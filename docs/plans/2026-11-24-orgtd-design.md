@@ -266,28 +266,32 @@ avdmanager create avd -n gtd35 -k "system-images;android-35;google_apis;arm64-v8
 2. 手机 Android 版本与厂商（决定精确闹钟的权限引导文案与 Doze 兜底测试机型）。
 
 
-## 15. 版本锁定与升级路径
+## 15. 版本策略与升级记录
 
-首次构建时撞到的事实：2026 年的 androidx 构件（`core-ktx 1.19`、Compose BOM `2026.x`）要求 **AGP 9.1+ 且 compileSdk 37**，而 AGP 8.13 官方支持上限是 compileSdk 36。命令行工具安装的 SDK 写的是 package.xml `schema v4`，AGP 8.13 读它只报 warning，不影响构建。
+### 15.1 2026-11-24 升级到 AGP 9
 
-当前锁定：
+初版为了尽快跑通，锁在 AGP 8.13 / compileSdk 36 / 2025 年的 androidx。随后按要求升级到 Material 3 1.5（Expressive 组件）：
 
-| 组件 | 版本 | 原因 |
+| 组件 | 旧 | 新 |
 |---|---|---|
-| Gradle | 8.14.3 | AGP 8.13 的最低要求之上，JDK 21 兼容 |
-| AGP | 8.13.2 | 8.x 最后一版，compileSdk 36 |
-| Kotlin | 2.2.21 | 与 AGP 8.13、Compose 编译器插件配套 |
-| compileSdk / targetSdk | 36 | |
-| minSdk | 26 | |
-| Compose BOM | 2025.06.01 | 与 compileSdk 36 匹配 |
-| core-ktx / activity / lifecycle | 1.16.0 / 1.10.1 / 2.9.1 | 同上 |
+| Gradle | 8.14.3 | 9.9.2 |
+| AGP | 8.13.2 | 9.5.2 |
+| Kotlin | 2.2.21 | 2.4.21 |
+| compileSdk / targetSdk | 36 | 37.1 / 37 |
+| Compose BOM | 2025.06.01 | 2026.11.01 |
+| core-ktx / activity / lifecycle | 1.16.0 / 1.10.1 / 2.9.1 | 1.19.1 / 1.13.0 / 2.11.1 |
 
-升级路径（单独一个提交，便于回退）：
+升级途中撞到三件事，都记在这里免得下次重踩：
 
-1. `sdkmanager "platforms;android-37" "build-tools;37.0.0"`；
-2. AGP → 9.5.x，Gradle → 9.9.x，Kotlin → 2.4.x（Compose 编译器插件随 Kotlin 走）；
-3. 恢复最新 androidx 与 Compose BOM；
-4. 注意 AGP 9 的 DSL 变化（内置 Kotlin 支持、部分 DSL 移除），预计需要改 `app/build.gradle.kts` 的插件声明。
+1. **AGP 9 内置 Kotlin**：再显式 apply `org.jetbrains.kotlin.android` 会直接失败，提示移除该插件。`:app` 现在只留 `com.android.application` + `kotlin.plugin.compose`；`:orgmode` 仍是纯 JVM 模块，继续用 `kotlin.jvm`。
+2. **compileSdk 有了小版本**：Compose 1.13 要求至少 37.1，`compileSdk = 37` 不够。AGP 9 的 DSL 是 `compileSdk = 37` + `compileSdkMinor = 1`，SDK 包名也变成 `platforms;android-37.1`。
+3. **图标库不再随 material3 传递**：Compose 1.13 起 `material3` 不带 `androidx.compose.material.icons`，需要显式依赖 `material-icons-core:1.7.8`（该工件已冻结在这一版）。
+
+升级后的告警（未处理，均不影响功能）：`EncryptedSharedPreferences`、`rememberModalBottomSheetState`、`PasswordVisualTransformation` 在 2026 年的库中标记为 deprecated；前者需要自己用 Keystore 写 AES-GCM，后两者要换 `BasicSecureTextField` 与新 SheetState API，建议单独一次提交处理。
+
+### 15.2 关于 Material 3 Expressive
+
+material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案与组件），但没有 `MaterialExpressiveTheme` 这种一键开关；Expressive 主要体现在组件行为上。本次升级拿到了这些组件，主题仍用 `MaterialTheme` + 自定义 ColorScheme。
 
 ## 16. 已完成事项
 
@@ -350,7 +354,7 @@ avdmanager create avd -n gtd35 -k "system-images;android-35;google_apis;arm64-v8
 
 界面本来就建在 Material 3 组件上（NavigationBar / TopAppBar / FilterChip / FAB / ModalBottomSheet），这次补的是可控的配色：
 
-- `OrgtdPalettes` 提供 5 套手工配色：林间绿（默认）、海盐蓝、琥珀暖沙、鸢尾紫、石墨灰，每套含 Light/Dark 两个 `ColorScheme`。
+- `OrgtdPalettes` 提供 5 套手工配色：海盐蓝（默认）、林间绿、琥珀暖沙、鸢尾紫、石墨灰，每套含 Light/Dark 两个 `ColorScheme`。
 - 只覆盖角色色（primary/secondary/tertiary 及容器、background/surface、surfaceVariant、outline），`error` 系列沿用 M3 基线；容器色手工指定，避免深浅模式下对比度失衡。
 - Android 12+ 额外提供「跟随壁纸」：走 `dynamicLightColorScheme` / `dynamicDarkColorScheme`，旧版本自动回落到林间绿。
 - 外观三档：跟随系统 / 浅色 / 深色，存在 `OrgPrefs`，不进 org 文件。
