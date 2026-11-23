@@ -1,6 +1,7 @@
 package dev.orgtd.data
 
 import android.content.Context
+import dev.orgtd.Language
 
 enum class StorageMode { LOCAL, WEBDAV }
 
@@ -35,6 +36,11 @@ class OrgPrefs(context: Context) {
         get() = prefs.getString(KEY_THEME, DEFAULT_THEME) ?: DEFAULT_THEME
         set(value) = prefs.edit().putString(KEY_THEME, value).apply()
 
+    var language: Language
+        get() = Language.entries.firstOrNull { it.name == prefs.getString(KEY_LANGUAGE, null) }
+            ?: Language.SYSTEM
+        set(value) = prefs.edit().putString(KEY_LANGUAGE, value.name).apply()
+
     var darkMode: DarkMode
         get() = DarkMode.entries.firstOrNull { it.name == prefs.getString(KEY_DARK_MODE, null) }
             ?: DarkMode.SYSTEM
@@ -52,5 +58,6 @@ class OrgPrefs(context: Context) {
         private const val KEY_DAV_USER = "dav_user"
         private const val KEY_THEME = "theme_id"
         private const val KEY_DARK_MODE = "dark_mode"
+        private const val KEY_LANGUAGE = "language"
     }
 }

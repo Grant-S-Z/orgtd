@@ -5,6 +5,9 @@ import android.net.Uri
 import java.io.File
 import java.io.IOException
 
+/** 离线副本不允许写回。 */
+class OfflineWriteException : IOException("offline")
+
 /** 一次读取的结果；[etag] / [lastModified] 用于写回时做并发校验。 */
 data class Snapshot(
     val text: String,
@@ -83,7 +86,7 @@ class RemoteSource(
 
     override fun write(text: String, expected: Snapshot?, backupOf: String?): Snapshot? {
         if (expected?.fromCache == true) {
-            throw IOException("当前是离线副本，无法写回；请等到能联网后刷新")
+            throw OfflineWriteException()
         }
 
         // 远端不留 .bak（多一次请求、多一份同步面），改成写本地私有目录
@@ -95,7 +98,7 @@ class RemoteSource(
         }
 
         val remote = client.put(text, expected?.etag, expected?.lastModified)
-            ?: throw IOException("写入失败：服务器没有返回内容")
+            ?: throw IOException("empty response")
         saveCache(remote)
         return Snapshot(remote.text, remote.etag, remote.lastModified)
     }

@@ -22,17 +22,17 @@ class SafStore(private val context: Context, private val treeUri: Uri) {
     }
 
     fun write(name: String, text: String) {
-        val dir = root() ?: throw IOException("目录授权已失效，请重新选择")
+        val dir = root() ?: throw IOException("folder permission lost")
         // 用 application/octet-stream：SAF 不会按 MIME 给显示名补后缀
         // （用 text/plain 时 "gtd.org.bak" 会被改成 "gtd.org.bak.txt"）
         val file = dir.findFile(name)?.takeIf { it.isFile }
             ?: dir.createFile("application/octet-stream", name)
-            ?: throw IOException("无法创建 $name")
+            ?: throw IOException("cannot create $name")
 
         context.contentResolver.openOutputStream(file.uri, "wt")?.use { out ->
             out.write(text.toByteArray())
             out.flush()
-        } ?: throw IOException("无法写入 $name")
+        } ?: throw IOException("cannot write $name")
     }
 
     fun lastModified(name: String): Long =

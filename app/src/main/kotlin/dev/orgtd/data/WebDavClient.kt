@@ -10,7 +10,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
-class ConflictException : IOException("文件已在别处修改")
+class ConflictException : IOException("conflict")
 
 data class RemoteFile(val text: String, val etag: String?, val lastModified: String?)
 
@@ -37,7 +37,7 @@ class WebDavClient(
         client.newCall(request).execute().use { response ->
             return when {
                 response.code == 404 -> null
-                !response.isSuccessful -> throw IOException("读取失败：HTTP ${response.code}")
+                !response.isSuccessful -> throw IOException("HTTP ${response.code}")
                 else -> RemoteFile(
                     text = response.body?.string().orEmpty(),
                     etag = response.header("ETag"),
@@ -61,7 +61,7 @@ class WebDavClient(
         client.newCall(request).execute().use { response ->
             return when {
                 response.code == 412 || response.code == 409 -> throw ConflictException()
-                !response.isSuccessful -> throw IOException("写入失败：HTTP ${response.code}")
+                !response.isSuccessful -> throw IOException("HTTP ${response.code}")
                 else -> RemoteFile(
                     text = text,
                     etag = response.header("ETag"),
@@ -73,7 +73,7 @@ class WebDavClient(
 
     /** 保存前确认能连上、文件存在且可读。 */
     fun check(): String {
-        val file = get() ?: throw IOException("服务器上找不到这个文件")
+        val file = get() ?: throw IOException("file not found")
         return file.text
     }
 

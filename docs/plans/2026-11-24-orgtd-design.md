@@ -383,3 +383,22 @@ material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案�
 - **修复 appendTask 层级 bug**：`appendTask` 原来无论有没有指定清单都写 `* TODO`，导致从清单里新建的任务实际变成了顶层任务（实测复现）。现在按 `list.level + 1` 生成星号，并补了回归断言。
 - **正文搜索**：`TaskMapper` 提取每个条目的正文（跳过属性抽屉、计划行、子标题），搜索匹配标题 + 正文 + 标签。匹配逻辑抽成 `TaskUi.matches(query)` 便于单测。
 - **电脑预览**：`scripts/dev-preview.sh` 启动带窗口的 AVD、安装最新包并推入示例文件；SAF 目录授权需手动一次，之后保留。
+
+## 24. 多语言（2026-11-24）
+
+界面文案抽到 `AppStrings`，中文/英文两份，由 `Strings.resolve(Language)` 按「跟随系统 / 中文 / English」选择。没有用 Android 资源文件，原因是：
+
+- 切换语言要做到即时生效，不想重建 Activity；
+- ViewModel 的错误提示、后台通知（渠道名、动作按钮）也要同一套文案，资源文件在后台不好按设置覆盖 locale。
+
+实现要点：
+
+- `LocalStrings` CompositionLocal 由 `MainActivity` 注入；UI 各 composable 读 `LocalStrings.current`。
+- `AppStrings` 里带参数文案用函数（`repeats(rule)`、`subtasks(n)`、`deleteListMessage(name)`），日期格式化也由它负责（中文 `11月22日` / 英文 `Nov 22`）。
+- ViewModel 用 `Strings.resolve(prefs.language)` 取错误文案；`ConflictException`、`OfflineWriteException` 映射成对应语言的提示，其他 IO 错误加「读取失败/写入失败」前缀。
+- 通知文案（渠道名、完成/推迟按钮、兜底文案）同样走 `AppStrings`，在收到闹钟或发通知时按当时设置解析。
+- 主题名做成中英双语（林间绿/Forest），设置面板按当前语言显示。
+
+命名：`收件箱` 在两种语言下统一叫 **Inbox**，避免中文用户把它理解成邮箱。
+
+验证：英文系统 locale 下首次启动即为英文（Today / This week / Done / Inbox）；在设置里切到「中文」后立即变成「今天 / 本周 / 已完成 / Inbox」，日期显示 `11月22日 · 重复 +1d`。

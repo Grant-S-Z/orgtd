@@ -12,6 +12,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import dev.orgtd.MainActivity
 import dev.orgtd.R
+import dev.orgtd.Strings
+import dev.orgtd.data.OrgPrefs
 
 object ReminderNotifier {
 
@@ -20,14 +22,14 @@ object ReminderNotifier {
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
 
+        val strings = Strings.resolve(OrgPrefs(context).language)
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "任务提醒",
+            strings.channelName,
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
-            description = "SCHEDULED / DEADLINE 带时刻的到期提醒"
+            description = strings.channelDescription
         }
         manager.createNotificationChannel(channel)
     }
@@ -42,16 +44,17 @@ object ReminderNotifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+        val strings = Strings.resolve(OrgPrefs(context).language)
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
-            .setContentText(time ?: "该做了")
+            .setContentText(time ?: strings.reminderFallback)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(open)
-            .addAction(0, "完成", action(context, id, ReminderActionReceiver.ACTION_COMPLETE, title))
-            .addAction(0, "推迟到明天", action(context, id, ReminderActionReceiver.ACTION_POSTPONE, title))
+            .addAction(0, strings.actionComplete, action(context, id, ReminderActionReceiver.ACTION_COMPLETE, title))
+            .addAction(0, strings.actionPostpone, action(context, id, ReminderActionReceiver.ACTION_POSTPONE, title))
             .build()
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||

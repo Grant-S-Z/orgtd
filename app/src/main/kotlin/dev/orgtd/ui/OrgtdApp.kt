@@ -65,32 +65,41 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import dev.orgtd.AppStrings
 import dev.orgtd.ListUi
+import dev.orgtd.Language
 import dev.orgtd.data.DarkMode
 import dev.orgtd.TaskUi
 import dev.orgtd.matches
 import dev.orgtd.UiState
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlinx.coroutines.launch
 
 private const val NO_DETAIL = Int.MIN_VALUE
 private const val UNGROUPED_LIST = -1
 private const val UNSCOPED = Int.MIN_VALUE
 
-private enum class Tab(val label: String, val icon: ImageVector) {
-    Today("今天", Icons.Filled.DateRange),
-    Inbox("收件箱", Icons.Filled.Email),
-    Lists("清单", Icons.AutoMirrored.Filled.List),
-    Search("搜索", Icons.Filled.Search),
+private enum class Tab(val icon: ImageVector) {
+    Today(Icons.Filled.DateRange),
+    Inbox(Icons.Filled.Email),
+    Lists(Icons.AutoMirrored.Filled.List),
+    Search(Icons.Filled.Search),
 }
 
-private enum class Range(val label: String) {
-    Today("今天"),
-    Week("本周"),
-    All("全部"),
-    Completed("已完成"),
+private fun Tab.label(strings: AppStrings): String = when (this) {
+    Tab.Today -> strings.today
+    Tab.Inbox -> strings.inbox
+    Tab.Lists -> strings.lists
+    Tab.Search -> strings.search
+}
+
+private enum class Range { Today, Week, All, Completed }
+
+private fun Range.label(strings: AppStrings): String = when (this) {
+    Range.Today -> strings.today
+    Range.Week -> strings.week
+    Range.All -> strings.all
+    Range.Completed -> strings.completed
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -115,8 +124,10 @@ fun OrgtdApp(
     onSaveWebDav: (String, String, String) -> Unit,
     onSetTheme: (String) -> Unit,
     onSetDarkMode: (DarkMode) -> Unit,
+    onSetLanguage: (Language) -> Unit,
     onDismissError: () -> Unit,
 ) {
+    val strings = LocalStrings.current
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
     var rangeIndex by rememberSaveable { mutableIntStateOf(0) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -131,7 +142,7 @@ fun OrgtdApp(
     val inDetail = detailLine != NO_DETAIL
     val detailName = when (detailLine) {
         NO_DETAIL -> null
-        UNGROUPED_LIST -> "未归类"
+        UNGROUPED_LIST -> strings.ungrouped
         else -> state.lists.firstOrNull { it.line == detailLine }?.name
     }
 
@@ -145,7 +156,7 @@ fun OrgtdApp(
         onDeleteTask(line)
         editingLine = -1
         scope.launch {
-            val result = snackbar.showSnackbar("已删除", actionLabel = "撤销")
+            val result = snackbar.showSnackbar(strings.deleted, actionLabel = strings.undo)
             if (result == SnackbarResult.ActionPerformed) onUndoDelete()
         }
     }
@@ -155,29 +166,29 @@ fun OrgtdApp(
         topBar = {
             if (inDetail) {
                 TopAppBar(
-                    title = { Text(detailName ?: "清单") },
+                    title = { Text(detailName ?: strings.lists) },
                     navigationIcon = {
                         IconButton(onClick = { detailLine = NO_DETAIL }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = strings.back)
                         }
                     },
                     actions = {
                         IconButton(onClick = onRefresh) {
-                            Icon(Icons.Filled.Refresh, contentDescription = "刷新")
+                            Icon(Icons.Filled.Refresh, contentDescription = strings.refresh)
                         }
                     },
                 )
             } else {
                 TopAppBar(
-                    title = { Text(tab.label) },
+                    title = { Text(tab.label(strings)) },
                     actions = {
                         if (state.folderSelected) {
                             IconButton(onClick = onRefresh) {
-                                Icon(Icons.Filled.Refresh, contentDescription = "刷新")
+                                Icon(Icons.Filled.Refresh, contentDescription = strings.refresh)
                             }
                         }
                         IconButton(onClick = { showSettings = true }) {
-                            Icon(Icons.Filled.Settings, contentDescription = "设置")
+                            Icon(Icons.Filled.Settings, contentDescription = strings.settings)
                         }
                     },
                 )
@@ -191,7 +202,7 @@ fun OrgtdApp(
                             selected = tabIndex == index,
                             onClick = { tabIndex = index },
                             icon = { Icon(item.icon, contentDescription = null) },
-                            label = { Text(item.label) },
+                            label = { Text(item.label(strings)) },
                         )
                     }
                 }
@@ -205,7 +216,7 @@ fun OrgtdApp(
                             addScope = detailLine
                             showAdd = true
                         },
-                    ) { Icon(Icons.Filled.Add, contentDescription = "新建任务") }
+                    ) { Icon(Icons.Filled.Add, contentDescription = strings.newTask) }
                 }
 
                 state.folderSelected && tab != Tab.Search -> FloatingActionButton(
@@ -220,7 +231,7 @@ fun OrgtdApp(
                 ) {
                     Icon(
                         Icons.Filled.Add,
-                        contentDescription = if (tab == Tab.Lists) "新建清单" else "新建任务",
+                        contentDescription = if (tab == Tab.Lists) strings.newList else strings.newTask,
                     )
                 }
             }
@@ -314,12 +325,13 @@ fun OrgtdApp(
             },
             onSetTheme = onSetTheme,
             onSetDarkMode = onSetDarkMode,
+            onSetLanguage = onSetLanguage,
         )
     }
 
     if (showAddList) {
         NameDialog(
-            title = "新建清单",
+            title = strings.newList,
             initial = "",
             onDismiss = { showAddList = false },
             onConfirm = { name ->
@@ -332,7 +344,7 @@ fun OrgtdApp(
     val renaming = state.lists.firstOrNull { it.line == renamingLine }
     if (renaming != null) {
         NameDialog(
-            title = "重命名清单",
+            title = strings.renameList,
             initial = renaming.name,
             onDismiss = { renamingLine = -1 },
             onConfirm = { name ->
@@ -346,15 +358,15 @@ fun OrgtdApp(
     if (deleting != null) {
         AlertDialog(
             onDismissRequest = { deletingLine = -1 },
-            title = { Text("删除清单") },
-            text = { Text("「${deleting.name}」和其中的任务会移到文件末尾的 * 已删除 下，可在 Emacs 里恢复。") },
+            title = { Text(strings.deleteList) },
+            text = { Text(strings.deleteListMessage(deleting.name)) },
             confirmButton = {
                 TextButton(onClick = {
                     onDeleteList(deleting.line)
                     deletingLine = -1
-                }) { Text("删除") }
+                }) { Text(strings.delete) }
             },
-            dismissButton = { TextButton(onClick = { deletingLine = -1 }) { Text("取消") } },
+            dismissButton = { TextButton(onClick = { deletingLine = -1 }) { Text(strings.cancel) } },
         )
     }
 
@@ -382,17 +394,18 @@ private fun TodayTab(
     onToggle: (Int) -> Unit,
     onOpen: (Int) -> Unit,
 ) {
+    val strings = LocalStrings.current
     val today = LocalDate.now()
     RangeSelector(rangeIndex, onRangeChange)
 
     when (Range.entries[rangeIndex]) {
-        Range.Today -> TaskList(state.today, today, onToggle, onOpen, "今天没有安排的任务")
-        Range.Week -> TaskList(state.week, today, onToggle, onOpen, "本周还没有排期")
-        Range.Completed -> TaskList(state.completed, today, onToggle, onOpen, "还没有完成的任务")
+        Range.Today -> TaskList(state.today, today, onToggle, onOpen, strings.noTasksToday)
+        Range.Week -> TaskList(state.week, today, onToggle, onOpen, strings.noTasksWeek)
+        Range.Completed -> TaskList(state.completed, today, onToggle, onOpen, strings.noCompleted)
         Range.All -> {
-            val groups = state.tasks.filter { !it.done }.groupBy { it.listName ?: "未归类" }
+            val groups = state.tasks.filter { !it.done }.groupBy { it.listName ?: strings.ungrouped }
             if (groups.isEmpty()) {
-                EmptyHint("没有未完成的任务")
+                EmptyHint(strings.noOpenTasks)
             } else {
                 LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
                     groups.forEach { (name, tasks) ->
@@ -415,8 +428,9 @@ private fun ListTasks(
     onToggle: (Int) -> Unit,
     onOpen: (Int) -> Unit,
 ) {
+    val strings = LocalStrings.current
     if (name == null) {
-        EmptyHint("这个清单已经不在了")
+        EmptyHint(strings.listGone)
         return
     }
 
@@ -425,7 +439,7 @@ private fun ListTasks(
         .sortedWith(compareBy<TaskUi> { it.done }.thenBy { it.date ?: LocalDate.MAX })
 
     if (tasks.isEmpty()) {
-        EmptyHint("这个清单还没有任务\n点右下角 + 添加")
+        EmptyHint(strings.listEmpty)
         return
     }
 
@@ -438,7 +452,8 @@ private fun ListTasks(
 
 @Composable
 private fun InboxTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> Unit) {
-    TaskList(state.ungrouped.filter { !it.done }, LocalDate.now(), onToggle, onOpen, "收件箱是空的")
+    val strings = LocalStrings.current
+    TaskList(state.ungrouped.filter { !it.done }, LocalDate.now(), onToggle, onOpen, strings.inboxEmpty)
 }
 
 @Composable
@@ -450,9 +465,10 @@ private fun ListsTab(
     onDelete: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
 ) {
+    val strings = LocalStrings.current
     val lists = state.lists
     if (lists.isEmpty() && state.ungrouped.isEmpty()) {
-        EmptyHint("还没有清单\n点右下角 + 新建，或在 org 文件里写顶层标题")
+        EmptyHint(strings.noLists)
         return
     }
 
@@ -460,7 +476,7 @@ private fun ListsTab(
         if (state.ungrouped.isNotEmpty()) {
             item(key = "ungrouped") {
                 ListRow(
-                    name = "未归类",
+                    name = strings.ungrouped,
                     open = state.ungrouped.count { !it.done },
                     actions = null,
                     onClick = onOpenUngrouped,
@@ -487,22 +503,23 @@ private fun ListsTab(
 
 @Composable
 private fun SearchTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> Unit) {
+    val strings = LocalStrings.current
     var query by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            label = { Text("搜索标题或标签") },
+            label = { Text(strings.searchFieldLabel) },
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
         )
         if (query.isBlank()) {
-            EmptyHint("输入关键词开始搜索")
+            EmptyHint(strings.searchPrompt)
         } else {
             val hits = state.tasks.filter { it.matches(query) }
-            TaskList(hits, LocalDate.now(), onToggle, onOpen, "没有匹配的任务")
+            TaskList(hits, LocalDate.now(), onToggle, onOpen, strings.noMatches)
         }
     }
 }
@@ -511,6 +528,7 @@ private fun SearchTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> 
 
 @Composable
 private fun RangeSelector(selected: Int, onSelect: (Int) -> Unit) {
+    val strings = LocalStrings.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -521,7 +539,7 @@ private fun RangeSelector(selected: Int, onSelect: (Int) -> Unit) {
             FilterChip(
                 selected = selected == index,
                 onClick = { onSelect(index) },
-                label = { Text(range.label) },
+                label = { Text(range.label(strings)) },
             )
         }
     }
@@ -535,6 +553,7 @@ private fun TaskList(
     onOpen: (Int) -> Unit,
     emptyText: String,
 ) {
+    val strings = LocalStrings.current
     if (tasks.isEmpty()) {
         EmptyHint(emptyText)
         return
@@ -551,6 +570,7 @@ private fun TaskRow(
     onToggle: (Int) -> Unit,
     onOpen: (Int) -> Unit,
 ) {
+    val strings = LocalStrings.current
     val overdue = !task.done && task.date != null && task.date.isBefore(today)
 
     Row(
@@ -573,10 +593,10 @@ private fun TaskRow(
                 color = if (task.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             )
             val meta = buildList {
-                if (!task.done) task.date?.let { add(formatDate(it, today)) }
-                task.closed?.let { add("完成于 ${formatDate(it.toLocalDate(), today)}") }
-                task.repeater?.let { add("重复 $it") }
-                if (task.children > 0) add("${task.children} 个子任务")
+                if (!task.done) task.date?.let { add(strings.formatDate(it, today)) }
+                task.closed?.let { add(strings.completedOn(strings.formatDate(it.toLocalDate(), today))) }
+                task.repeater?.let { add(strings.repeats(it)) }
+                if (task.children > 0) add(strings.subtasks(task.children))
                 task.listName?.let { add(it) }
                 if (task.tags.isNotEmpty()) add(task.tags.joinToString(" ") { "#$it" })
             }
@@ -626,6 +646,7 @@ private fun ListRow(
     actions: ListActions?,
     onClick: (() -> Unit)? = null,
 ) {
+    val strings = LocalStrings.current
     var expanded by remember { mutableStateOf(false) }
 
     Row(
@@ -644,25 +665,25 @@ private fun ListRow(
         if (actions != null) {
             Box {
                 IconButton(onClick = { expanded = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "清单操作")
+                    Icon(Icons.Filled.MoreVert, contentDescription = strings.listActions)
                 }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     DropdownMenuItem(
-                        text = { Text("上移") },
+                        text = { Text(strings.moveUp) },
                         enabled = actions.canUp,
                         onClick = { expanded = false; actions.onUp() },
                     )
                     DropdownMenuItem(
-                        text = { Text("下移") },
+                        text = { Text(strings.moveDown) },
                         enabled = actions.canDown,
                         onClick = { expanded = false; actions.onDown() },
                     )
                     DropdownMenuItem(
-                        text = { Text("重命名") },
+                        text = { Text(strings.rename) },
                         onClick = { expanded = false; actions.onRename() },
                     )
                     DropdownMenuItem(
-                        text = { Text("删除") },
+                        text = { Text(strings.delete) },
                         onClick = { expanded = false; actions.onDelete() },
                     )
                 }
@@ -684,6 +705,7 @@ private fun SectionHeader(name: String) {
 
 @Composable
 private fun OfflineBanner(onRetry: () -> Unit) {
+    val strings = LocalStrings.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -692,17 +714,18 @@ private fun OfflineBanner(onRetry: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "离线：显示上次同步的副本，改动不会保存",
+            text = strings.offlineBanner,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onTertiaryContainer,
             modifier = Modifier.weight(1f),
         )
-        TextButton(onClick = onRetry) { Text("重试") }
+        TextButton(onClick = onRetry) { Text(strings.retry) }
     }
 }
 
 @Composable
 private fun ExactAlarmBanner(onRequest: () -> Unit) {
+    val strings = LocalStrings.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -711,17 +734,18 @@ private fun ExactAlarmBanner(onRequest: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "精确闹钟未授权，提醒可能延迟",
+            text = strings.exactAlarmBanner,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier = Modifier.weight(1f),
         )
-        TextButton(onClick = onRequest) { Text("去授权") }
+        TextButton(onClick = onRequest) { Text(strings.authorize) }
     }
 }
 
 @Composable
 private fun ErrorBar(message: String, onDismiss: () -> Unit) {
+    val strings = LocalStrings.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -735,12 +759,13 @@ private fun ErrorBar(message: String, onDismiss: () -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.weight(1f),
         )
-        TextButton(onClick = onDismiss) { Text("知道了") }
+        TextButton(onClick = onDismiss) { Text(strings.dismiss) }
     }
 }
 
 @Composable
 private fun FolderPrompt(onPickFolder: () -> Unit) {
+    val strings = LocalStrings.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -748,20 +773,21 @@ private fun FolderPrompt(onPickFolder: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("还没有选择同步目录", style = MaterialTheme.typography.titleMedium)
+        Text(strings.noFolderTitle, style = MaterialTheme.typography.titleMedium)
         Text(
-            text = "把坚果云同步到的目录授权给 orgtd，App 只读写其中的 gtd.org",
+            text = strings.noFolderHint,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp, bottom = 20.dp),
         )
-        Button(onClick = onPickFolder) { Text("选择目录") }
+        Button(onClick = onPickFolder) { Text(strings.chooseFolder) }
     }
 }
 
 @Composable
 private fun MissingFile(fileName: String, onPickFolder: () -> Unit) {
+    val strings = LocalStrings.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -769,15 +795,15 @@ private fun MissingFile(fileName: String, onPickFolder: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("目录里没有 $fileName", style = MaterialTheme.typography.titleMedium)
+        Text(strings.missingFileTitle(fileName), style = MaterialTheme.typography.titleMedium)
         Text(
-            text = "确认同步目录里存在这个文件，或者重新选择目录",
+            text = strings.missingFileHint,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp, bottom = 20.dp),
         )
-        Button(onClick = onPickFolder) { Text("重新选择目录") }
+        Button(onClick = onPickFolder) { Text(strings.reselectFolder) }
     }
 }
 
@@ -812,6 +838,7 @@ private fun NameDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
+    val strings = LocalStrings.current
     var value by rememberSaveable(initial) { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -820,7 +847,7 @@ private fun NameDialog(
             OutlinedTextField(
                 value = value,
                 onValueChange = { value = it },
-                label = { Text("名称") },
+                label = { Text(strings.nameLabel) },
                 singleLine = true,
             )
         },
@@ -828,18 +855,8 @@ private fun NameDialog(
             TextButton(
                 onClick = { if (value.isNotBlank()) onConfirm(value.trim()) },
                 enabled = value.isNotBlank(),
-            ) { Text("确定") }
+            ) { Text(strings.confirm) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(strings.cancel) } },
     )
-}
-
-private val MONTH_DAY = DateTimeFormatter.ofPattern("M月d日", Locale.CHINA)
-
-private fun formatDate(date: LocalDate, today: LocalDate): String = when {
-    date == today -> "今天"
-    date == today.plusDays(1) -> "明天"
-    date == today.minusDays(1) -> "昨天"
-    date.year == today.year -> date.format(MONTH_DAY)
-    else -> date.format(DateTimeFormatter.ofPattern("yyyy年M月d日", Locale.CHINA))
 }

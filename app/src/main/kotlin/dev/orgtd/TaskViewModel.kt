@@ -13,6 +13,8 @@ import dev.orgtd.data.Sources
 import dev.orgtd.data.StorageMode
 import dev.orgtd.orgmode.DateSpec
 import dev.orgtd.orgmode.OrgDocument
+import dev.orgtd.data.ConflictException
+import dev.orgtd.data.OfflineWriteException
 import dev.orgtd.reminder.ReminderScheduler
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -59,6 +61,7 @@ data class SettingsUi(
     val localFolderChosen: Boolean = false,
     val themeId: String = OrgPrefs.DEFAULT_THEME,
     val darkMode: DarkMode = DarkMode.SYSTEM,
+    val language: Language = Language.SYSTEM,
 )
 
 data class UiState(
@@ -99,6 +102,7 @@ data class UiState(
 class TaskViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = OrgPrefs(app)
+    private val strings get() = Strings.resolve(prefs.language)
     private val _state = MutableStateFlow(UiState(settings = readSettings()))
     val state: StateFlow<UiState> = _state.asStateFlow()
 
@@ -121,6 +125,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         localFolderChosen = prefs.treeUri != null,
         themeId = prefs.themeId,
         darkMode = prefs.darkMode,
+        language = prefs.language,
     )
 
     private fun publishSettings() {
@@ -155,6 +160,11 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setDarkMode(mode: DarkMode) {
         prefs.darkMode = mode
+        publishSettings()
+    }
+
+    fun setLanguage(language: Language) {
+        prefs.language = language
         publishSettings()
     }
 
@@ -201,7 +211,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
                     it.copy(
                         loading = false,
                         sourceLabel = src.label,
-                        error = error.message ?: "读取失败",
+                        error = "${strings.readFailed}: ${error.message}",
                     )
                 }
             }
@@ -211,9 +221,9 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------------- 写入
 
     fun toggle(line: Int) = mutate { doc ->
-        val entry = doc.entryAt(line) ?: error("这条任务已经变了，请刷新")
+        val entry = doc.entryAt(line) ?: error(strings.staleTask)
         val withId = doc.ensureId(entry)
-        val target = withId.entryAt(line) ?: error("这条任务已经变了，请刷新")
+        val target = withId.entryAt(line) ?: error(strings.staleTask)
 
         // 重复任务：完成即推进日期，状态保持 TODO
         if (!target.isDone) {
@@ -271,7 +281,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deleteTask(line: Int) = mutate { doc ->
-        val entry = doc.entryAt(line) ?: error("这条任务已经变了，请刷新")
+        val entry = doc.entryAt(line) ?: error(strings.staleTask)
         undoSnapshot = doc.serialize()
         doc.delete(entry)
     }
@@ -285,20 +295,20 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         if (name.isBlank()) return
         mutate { doc ->
             val list = doc.entries.firstOrNull { it.lineIndex == line && it.isList }
-                ?: error("清单已经变了，请刷新")
+                ?: error(strings.staleList)
             doc.rename(list, name.trim())
         }
     }
 
     fun deleteList(line: Int) = mutate { doc ->
         val list = doc.entries.firstOrNull { it.lineIndex == line && it.isList }
-            ?: error("清单已经变了，请刷新")
+            ?: error(strings.staleList)
         doc.archiveList(list, LocalDateTime.now())
     }
 
     fun moveList(line: Int, delta: Int) = mutate { doc ->
         val list = doc.entries.firstOrNull { it.lineIndex == line && it.isList }
-            ?: error("清单已经变了，请刷新")
+            ?: error(strings.staleList)
         doc.moveList(list, delta)
     }
 
@@ -315,8 +325,8 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
-                    val current = src.read() ?: error("文件不存在")
-                    if (lastText != null && current.text != lastText) error("文件已经变了，无法撤销")
+                    val current = src.read() ?: error(strings.fileMissing)
+                    if (lastText != null && current.text != lastText) error(strings.undoChanged)
                     src.write(text, current, current.text)
                     OrgDocument.parse(text)
                 }
@@ -326,7 +336,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
                 apply(doc, src.label)
             }.onFailure { error ->
                 reload()
-                _state.update { it.copy(error = error.message ?: "撤销失败") }
+                _state.update { it.copy(error = error.message ?: strings.undoFailed) }
             }
         }
     }
@@ -338,9 +348,9 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
-                    val snapshot = src.read() ?: error("文件不存在，请刷新")
+                    val snapshot = src.read() ?: error(strings.fileMissing)
                     if (lastText != null && snapshot.text != lastText) {
-                        error("文件已在别处修改，已为你刷新，请重试")
+                        error(strings.conflictReload)
                     }
                     val next = block(OrgDocument.parse(snapshot.text))
                     val text = next.serialize()
@@ -355,7 +365,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
             }.onFailure { error ->
                 // 先静默重载，再挂错误；顺序反了会被 apply() 清掉
                 reload()
-                _state.update { it.copy(error = error.message ?: "写入失败") }
+                _state.update { it.copy(error = offlineOrMessage(error)) }
             }
         }
     }
@@ -377,6 +387,12 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
                 offline = snapshot.fromCache,
             )
         }
+    }
+
+    private fun offlineOrMessage(error: Throwable): String = when (error) {
+        is OfflineWriteException -> strings.offlineWriteBlocked
+        is ConflictException -> strings.conflictReload
+        else -> "${strings.writeFailed}: ${error.message}"
     }
 
     fun clearError() = _state.update { it.copy(error = null) }

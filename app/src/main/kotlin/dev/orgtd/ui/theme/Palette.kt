@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 data class ThemePalette(
     val id: String,
     val name: String,
+    val nameEn: String,
     val seed: Color,
     val light: ColorScheme,
     val dark: ColorScheme,
@@ -112,7 +113,7 @@ object OrgtdPalettes {
 
     val forest = ThemePalette(
         id = "forest",
-        name = "林间绿",
+        name = "林间绿", nameEn = "Forest",
         seed = Color(0xFF3F6F52),
         light = light(
             primary = 0xFF3F6F52, primaryContainer = 0xFFC1EBCE, onPrimaryContainer = 0xFF00210F,
@@ -132,7 +133,7 @@ object OrgtdPalettes {
 
     val ocean = ThemePalette(
         id = "ocean",
-        name = "海盐蓝",
+        name = "海盐蓝", nameEn = "Ocean",
         seed = Color(0xFF31628D),
         light = light(
             primary = 0xFF31628D, primaryContainer = 0xFFD0E4FF, onPrimaryContainer = 0xFF001D33,
@@ -152,7 +153,7 @@ object OrgtdPalettes {
 
     val amber = ThemePalette(
         id = "amber",
-        name = "琥珀暖沙",
+        name = "琥珀暖沙", nameEn = "Amber",
         seed = Color(0xFF7D5800),
         light = light(
             primary = 0xFF7D5800, primaryContainer = 0xFFFFDEA6, onPrimaryContainer = 0xFF271900,
@@ -172,7 +173,7 @@ object OrgtdPalettes {
 
     val iris = ThemePalette(
         id = "iris",
-        name = "鸢尾紫",
+        name = "鸢尾紫", nameEn = "Iris",
         seed = Color(0xFF6750A4),
         light = light(
             primary = 0xFF6750A4, primaryContainer = 0xFFEADDFF, onPrimaryContainer = 0xFF21005D,
@@ -192,7 +193,7 @@ object OrgtdPalettes {
 
     val graphite = ThemePalette(
         id = "graphite",
-        name = "石墨灰",
+        name = "石墨灰", nameEn = "Graphite",
         seed = Color(0xFF5D5F5F),
         light = light(
             primary = 0xFF5D5F5F, primaryContainer = 0xFFE2E3E2, onPrimaryContainer = 0xFF1A1C1C,
@@ -217,9 +218,12 @@ object OrgtdPalettes {
     /** 「跟随壁纸」只在 Android 12+ 有意义。 */
     val dynamicEntry = ThemePalette(
         id = DYNAMIC,
-        name = "跟随壁纸",
+        name = "跟随壁纸", nameEn = "Wallpaper",
         seed = Color(0xFF7A8B7F),
         light = forest.light,
         dark = forest.dark,
     )
 }
+
+/** 主题名按当前界面语言显示。 */
+fun ThemePalette.displayName(english: Boolean): String = if (english) nameEn else name

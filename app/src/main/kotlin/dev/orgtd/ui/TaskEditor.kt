@@ -35,24 +35,25 @@ fun AddTaskDialog(
     onDismiss: () -> Unit,
     onConfirm: (String, LocalDate?) -> Unit,
 ) {
+    val strings = LocalStrings.current
     var title by rememberSaveable { mutableStateOf("") }
     var choice by rememberSaveable { mutableIntStateOf(-1) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("新建任务") },
+        title = { Text(strings.newTask) },
         text = {
             Column {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("标题") },
+                    label = { Text(strings.titleLabel) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("无日期", "今天", "明天").forEachIndexed { index, label ->
+                    listOf(strings.noDate, strings.dateToday, strings.dateTomorrow).forEachIndexed { index, label ->
                         FilterChip(
                             selected = choice == index - 1,
                             onClick = { choice = index - 1 },
@@ -68,10 +69,10 @@ fun AddTaskDialog(
                     if (title.isNotBlank()) onConfirm(title.trim(), dateFor(choice))
                 },
                 enabled = title.isNotBlank(),
-            ) { Text("添加") }
+            ) { Text(strings.add) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(strings.cancel) }
         },
     )
 }
@@ -84,6 +85,7 @@ fun TaskSheet(
     onSave: (String, LocalDate?, Char?) -> Unit,
     onDelete: () -> Unit,
 ) {
+    val strings = LocalStrings.current
     val sheetState = rememberBottomSheetState(
         initialValue = SheetValue.Hidden,
         enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
@@ -102,18 +104,18 @@ fun TaskSheet(
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("标题") },
+                label = { Text(strings.titleLabel) },
                 modifier = Modifier.fillMaxWidth(),
             )
 
             Spacer(Modifier.height(20.dp))
-            Text("日期", style = MaterialTheme.typography.labelLarge)
+            Text(strings.dateLabel, style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
                 listOf(
-                    "无" to null,
-                    "今天" to LocalDate.now().toString(),
-                    "明天" to LocalDate.now().plusDays(1).toString(),
-                    "后天" to LocalDate.now().plusDays(2).toString(),
+                    strings.priorityNone to null,
+                    strings.dateToday to LocalDate.now().toString(),
+                    strings.dateTomorrow to LocalDate.now().plusDays(1).toString(),
+                    strings.dayAfter to LocalDate.now().plusDays(2).toString(),
                 ).forEach { (label, value) ->
                     FilterChip(
                         selected = date == value,
@@ -124,9 +126,14 @@ fun TaskSheet(
             }
 
             Spacer(Modifier.height(20.dp))
-            Text("优先级", style = MaterialTheme.typography.labelLarge)
+            Text(strings.priorityLabel, style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                listOf("" to "无", "A" to "高", "B" to "中", "C" to "低").forEach { (value, label) ->
+                listOf(
+                    "" to strings.priorityNone,
+                    "A" to strings.priorityHigh,
+                    "B" to strings.priorityMedium,
+                    "C" to strings.priorityLow,
+                ).forEach { (value, label) ->
                     FilterChip(
                         selected = priority == value,
                         onClick = { priority = value },
@@ -138,10 +145,10 @@ fun TaskSheet(
             Spacer(Modifier.height(28.dp))
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 TextButton(onClick = onDelete) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
+                    Text(strings.delete, color = MaterialTheme.colorScheme.error)
                 }
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = onDismiss) { Text("取消") }
+                TextButton(onClick = onDismiss) { Text(strings.cancel) }
                 Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = {
@@ -151,7 +158,7 @@ fun TaskSheet(
                             priority.firstOrNull(),
                         )
                     },
-                ) { Text("保存") }
+                ) { Text(strings.save) }
             }
         }
     }

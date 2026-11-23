@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,6 +27,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.orgtd.data.DarkMode
+import dev.orgtd.ui.LocalStrings
 import dev.orgtd.ui.OrgtdApp
 import dev.orgtd.ui.theme.OrgtdTheme
 
@@ -88,6 +90,11 @@ class MainActivity : ComponentActivity() {
                     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
                 }
 
+                val strings = remember(state.settings.language) {
+                    Strings.resolve(state.settings.language)
+                }
+
+                CompositionLocalProvider(LocalStrings provides strings) {
                 OrgtdApp(
                     state = state,
                     fileName = viewModel.fileName,
@@ -117,8 +124,10 @@ class MainActivity : ComponentActivity() {
                     onSaveWebDav = viewModel::saveWebDav,
                     onSetTheme = viewModel::setTheme,
                     onSetDarkMode = viewModel::setDarkMode,
+                    onSetLanguage = viewModel::setLanguage,
                     onDismissError = viewModel::clearError,
                 )
+                }
             }
         }
     }
