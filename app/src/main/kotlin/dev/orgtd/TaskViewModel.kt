@@ -221,6 +221,16 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         mutate { doc -> doc.appendTask(title.trim(), id, date) }
     }
 
+    /** 在指定清单下新建任务；[listLine] 为负数表示未归类（追加到文件末尾）。 */
+    fun addTaskToList(title: String, date: LocalDate?, listLine: Int) {
+        if (title.isBlank()) return
+        val id = UUID.randomUUID().toString()
+        mutate { doc ->
+            val list = doc.entryAt(listLine)?.takeIf { it.isList }
+            doc.appendTask(title.trim(), id, date, list)
+        }
+    }
+
     fun updateTask(line: Int, title: String, date: LocalDate?, priority: Char?) = mutate { doc ->
         var working = doc
         var entry = working.entryAt(line) ?: return@mutate working

@@ -106,6 +106,7 @@ class MainActivity : ComponentActivity() {
                     onRefresh = viewModel::refresh,
                     onToggle = viewModel::toggle,
                     onAddTask = viewModel::addTask,
+                    onAddTaskToList = viewModel::addTaskToList,
                     onUpdateTask = viewModel::updateTask,
                     onDeleteTask = viewModel::deleteTask,
                     onUndoDelete = viewModel::undoDelete,

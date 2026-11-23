@@ -1,5 +1,6 @@
 package dev.orgtd.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
@@ -17,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
@@ -72,6 +74,10 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
 
+private const val NO_DETAIL = Int.MIN_VALUE
+private const val UNGROUPED_LIST = -1
+private const val UNSCOPED = Int.MIN_VALUE
+
 private enum class Tab(val label: String, val icon: ImageVector) {
     Today("今天", Icons.Filled.DateRange),
     Inbox("收件箱", Icons.Filled.Email),
@@ -97,6 +103,7 @@ fun OrgtdApp(
     onRefresh: () -> Unit,
     onToggle: (Int) -> Unit,
     onAddTask: (String, LocalDate?) -> Unit,
+    onAddTaskToList: (String, LocalDate?, Int) -> Unit,
     onUpdateTask: (Int, String, LocalDate?, Char?) -> Unit,
     onDeleteTask: (Int) -> Unit,
     onUndoDelete: () -> Unit,
@@ -117,6 +124,17 @@ fun OrgtdApp(
     var editingLine by rememberSaveable { mutableIntStateOf(-1) }
     var renamingLine by rememberSaveable { mutableIntStateOf(-1) }
     var deletingLine by rememberSaveable { mutableIntStateOf(-1) }
+    var detailLine by rememberSaveable { mutableIntStateOf(NO_DETAIL) }
+    var addScope by rememberSaveable { mutableIntStateOf(UNSCOPED) }
+
+    val inDetail = detailLine != NO_DETAIL
+    val detailName = when (detailLine) {
+        NO_DETAIL -> null
+        UNGROUPED_LIST -> "未归类"
+        else -> state.lists.firstOrNull { it.line == detailLine }?.name
+    }
+
+    BackHandler(enabled = inDetail) { detailLine = NO_DETAIL }
 
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -134,36 +152,70 @@ fun OrgtdApp(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            TopAppBar(
-                title = { Text(tab.label) },
-                actions = {
-                    if (state.folderSelected) {
+            if (inDetail) {
+                TopAppBar(
+                    title = { Text(detailName ?: "清单") },
+                    navigationIcon = {
+                        IconButton(onClick = { detailLine = NO_DETAIL }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        }
+                    },
+                    actions = {
                         IconButton(onClick = onRefresh) {
                             Icon(Icons.Filled.Refresh, contentDescription = "刷新")
                         }
-                    }
-                    IconButton(onClick = { showSettings = true }) {
-                        Icon(Icons.Filled.Settings, contentDescription = "设置")
-                    }
-                },
-            )
+                    },
+                )
+            } else {
+                TopAppBar(
+                    title = { Text(tab.label) },
+                    actions = {
+                        if (state.folderSelected) {
+                            IconButton(onClick = onRefresh) {
+                                Icon(Icons.Filled.Refresh, contentDescription = "刷新")
+                            }
+                        }
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(Icons.Filled.Settings, contentDescription = "设置")
+                        }
+                    },
+                )
+            }
         },
         bottomBar = {
-            NavigationBar {
-                Tab.entries.forEachIndexed { index, item ->
-                    NavigationBarItem(
-                        selected = tabIndex == index,
-                        onClick = { tabIndex = index },
-                        icon = { Icon(item.icon, contentDescription = null) },
-                        label = { Text(item.label) },
-                    )
+            if (!inDetail) {
+                NavigationBar {
+                    Tab.entries.forEachIndexed { index, item ->
+                        NavigationBarItem(
+                            selected = tabIndex == index,
+                            onClick = { tabIndex = index },
+                            icon = { Icon(item.icon, contentDescription = null) },
+                            label = { Text(item.label) },
+                        )
+                    }
                 }
             }
         },
         floatingActionButton = {
-            if (state.folderSelected && tab != Tab.Search) {
-                FloatingActionButton(
-                    onClick = { if (tab == Tab.Lists) showAddList = true else showAdd = true },
+            when {
+                inDetail -> if (detailName != null) {
+                    FloatingActionButton(
+                        onClick = {
+                            addScope = detailLine
+                            showAdd = true
+                        },
+                    ) { Icon(Icons.Filled.Add, contentDescription = "新建任务") }
+                }
+
+                state.folderSelected && tab != Tab.Search -> FloatingActionButton(
+                    onClick = {
+                        if (tab == Tab.Lists) {
+                            showAddList = true
+                        } else {
+                            addScope = UNSCOPED
+                            showAdd = true
+                        }
+                    },
                 ) {
                     Icon(
                         Icons.Filled.Add,
@@ -190,6 +242,14 @@ fun OrgtdApp(
                 !state.folderSelected -> FolderPrompt(onPickFolder)
                 state.loading -> Loading()
                 state.missingFile -> MissingFile(fileName, onPickFolder)
+                inDetail -> ListTasks(
+                    state = state,
+                    listLine = detailLine,
+                    name = detailName,
+                    onToggle = onToggle,
+                    onOpen = { editingLine = it },
+                )
+
                 tab == Tab.Today -> TodayTab(
                     state = state,
                     rangeIndex = rangeIndex,
@@ -206,6 +266,8 @@ fun OrgtdApp(
 
                 tab == Tab.Lists -> ListsTab(
                     state = state,
+                    onOpenList = { detailLine = it.line },
+                    onOpenUngrouped = { detailLine = UNGROUPED_LIST },
                     onRename = { line ->
                         renamingLine = line
                     },
@@ -225,7 +287,13 @@ fun OrgtdApp(
         AddTaskDialog(
             onDismiss = { showAdd = false },
             onConfirm = { title, date ->
-                onAddTask(title, date)
+                val target = addScope
+                if (target == UNSCOPED) {
+                    onAddTask(title, date)
+                } else {
+                    onAddTaskToList(title, date, target)
+                }
+                addScope = UNSCOPED
                 showAdd = false
             },
         )
@@ -339,6 +407,35 @@ private fun TodayTab(
 }
 
 @Composable
+private fun ListTasks(
+    state: UiState,
+    listLine: Int,
+    name: String?,
+    onToggle: (Int) -> Unit,
+    onOpen: (Int) -> Unit,
+) {
+    if (name == null) {
+        EmptyHint("这个清单已经不在了")
+        return
+    }
+
+    val tasks = state.tasks
+        .filter { if (listLine == UNGROUPED_LIST) it.listName == null else it.listName == name }
+        .sortedWith(compareBy<TaskUi> { it.done }.thenBy { it.date ?: LocalDate.MAX })
+
+    if (tasks.isEmpty()) {
+        EmptyHint("这个清单还没有任务\n点右下角 + 添加")
+        return
+    }
+
+    LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+        items(tasks, key = { it.line }) { task ->
+            TaskRow(task, LocalDate.now(), onToggle, onOpen)
+        }
+    }
+}
+
+@Composable
 private fun InboxTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> Unit) {
     TaskList(state.ungrouped.filter { !it.done }, LocalDate.now(), onToggle, onOpen, "收件箱是空的")
 }
@@ -346,6 +443,8 @@ private fun InboxTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> U
 @Composable
 private fun ListsTab(
     state: UiState,
+    onOpenList: (ListUi) -> Unit,
+    onOpenUngrouped: () -> Unit,
     onRename: (Int) -> Unit,
     onDelete: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
@@ -359,7 +458,12 @@ private fun ListsTab(
     LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
         if (state.ungrouped.isNotEmpty()) {
             item(key = "ungrouped") {
-                ListRow("未归类", state.ungrouped.count { !it.done }, actions = null)
+                ListRow(
+                    name = "未归类",
+                    open = state.ungrouped.count { !it.done },
+                    actions = null,
+                    onClick = onOpenUngrouped,
+                )
             }
         }
         itemsIndexed(lists, key = { _, list -> list.line }) { index, list ->
@@ -374,6 +478,7 @@ private fun ListsTab(
                     onRename = { onRename(list.line) },
                     onDelete = { onDelete(list.line) },
                 ),
+                onClick = { onOpenList(list) },
             )
         }
     }
@@ -517,12 +622,18 @@ private class ListActions(
 )
 
 @Composable
-private fun ListRow(name: String, open: Int, actions: ListActions?) {
+private fun ListRow(
+    name: String,
+    open: Int,
+    actions: ListActions?,
+    onClick: (() -> Unit)? = null,
+) {
     var expanded by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
