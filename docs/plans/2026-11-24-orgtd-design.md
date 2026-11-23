@@ -14,7 +14,7 @@
 
 ## 2. 非目标（v1 明确不做）
 
-- 内建 WebDAV 客户端（用户明确暂缓；架构上留好接口）。
+- ~~内建 WebDAV~~（2026-11-24 改为已实现，见 §19）。
 - 完整的 org 编辑器：不编辑表格、`#+BEGIN_SRC` 块、LaTeX 片段、脚注、链接。
 - 多端实时协同、操作日志回放。
 - 附件、图片、标签管理页。
@@ -101,10 +101,18 @@ v1 只支持 `TODO` 和 `DONE` 两个状态，不写 `WAITING`、`CANCELLED`。
 
 ### 6.2 拓扑
 
+方式 A（默认，App 直连）：
+
 ```
 Emacs (Mac)  ──sync──  坚果云 (dav.jianguoyun.com/dav/)
-                              │ WebDAV
-                        FolderSync (Android, 定时双向)
+                              │ HTTPS WebDAV
+                        orgtd App（内置 WebDAV 客户端）
+```
+
+方式 B（本地目录，备用）：
+
+```
+Emacs (Mac)  ──sync──  坚果云 ──WebDAV── FolderSync (Android)
                               │
                     /storage/emulated/0/orgtd
                               │ SAF 授权目录
@@ -308,3 +316,32 @@ avdmanager create avd -n gtd35 -k "system-images;android-35;google_apis;arm64-v8
 - 因此 `POST_NOTIFICATIONS` 运行时权限（API 33 引入）不会触发；`SCHEDULE_EXACT_ALARM`（API 31 引入）**默认授予**，不需要引导用户去设置。代码里仍保留两个分支，模拟器（API 35）实测降级路径正常。
 - 侧载障碍在华为自己的机制：纯净模式「增强防护」需要关闭后才能装未上架应用；装完后要在「应用启动管理」里把 orgtd 设为手动管理并允许自启动/后台活动，否则闹钟会被清理。
 - App 无需为鸿蒙做任何代码适配；`minSdk 26`、`targetSdk 36` 的 APK 在 API 31 设备上可直接安装运行。
+
+## 19. WebDAV 内建（2026-11-24）
+
+坚果云的离线目录在 `Android/data/nutstore.android/files/`，Android 11+ 第三方无权访问，所以「读手机上的坚果云文件」只有两条路：外部同步工具，或 App 自己连 WebDAV。用户选择后者。
+
+实现：
+
+- `WebDavClient`：只做单文件 GET / PUT，`If-Match`（回退 `If-Unmodified-Since`）做并发保护，412/409 映射为 `ConflictException`。
+- `OrgSource` 抽象：`LocalSource`（SAF）与 `RemoteSource`（WebDAV）对上层同一接口；ViewModel、通知动作、开机重排都走它。
+- 凭据：账号存普通 prefs，**应用密码存 `EncryptedSharedPreferences`**（Keystore 加密，失败时退回私有明文）。
+- 远端不留 `.bak`（多一次请求、多一份要同步的文件），改为写 App 私有目录 `files/backup/gtd.org`。
+- 写入仍是「先读 → 比对上次文本 → 写」，远端再用 ETag 兜底；冲突时提示「文件已在别处修改，已为你刷新，请重试」，不覆盖。
+- debug 构建允许 cleartext，用于连本机测试服务；release 只允许 HTTPS。
+
+验证：
+
+- `WebDavClientTest` 5 个用例（MockWebServer）：读取带 ETag、404、PUT 带 If-Match、412 抛冲突、500 抛 IOException。
+- 端到端：本机起 `scripts/webdav-stub.py`，模拟器经 `10.0.2.2:8089` 连入。读取 8 条任务成功；勾选重复任务后远端日期推进到 11-25；外部改动文件后再勾选，界面提示冲突且远端未被覆盖。
+
+## 20. 权限清单
+
+| 权限 | 用途 | 目标机型（Android 12）行为 |
+|---|---|---|
+| `INTERNET` / `ACCESS_NETWORK_STATE` | WebDAV | 安装即授予 |
+| `POST_NOTIFICATIONS` | 提醒通知 | Android 13+ 才需运行时申请，本机不弹 |
+| `SCHEDULE_EXACT_ALARM` | 准点提醒 | Android 12 默认授予 |
+| `RECEIVE_BOOT_COMPLETED` | 开机重排闹钟 | 安装即授予 |
+
+不申请存储权限：文件访问全部走 SAF 或网络。

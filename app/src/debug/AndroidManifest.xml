@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 仅 debug：允许连本机测试用的 http WebDAV 服务。release 仍然强制 HTTPS。 -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

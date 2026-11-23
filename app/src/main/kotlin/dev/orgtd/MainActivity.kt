@@ -104,6 +104,7 @@ class MainActivity : ComponentActivity() {
                     onRenameList = viewModel::renameList,
                     onDeleteList = viewModel::deleteList,
                     onMoveList = viewModel::moveList,
+                    onSaveWebDav = viewModel::saveWebDav,
                     onDismissError = viewModel::clearError,
                 )
             }

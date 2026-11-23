@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.AlertDialog
@@ -102,10 +103,12 @@ fun OrgtdApp(
     onRenameList: (Int, String) -> Unit,
     onDeleteList: (Int) -> Unit,
     onMoveList: (Int, Int) -> Unit,
+    onSaveWebDav: (String, String, String) -> Unit,
     onDismissError: () -> Unit,
 ) {
     var tabIndex by rememberSaveable { mutableIntStateOf(0) }
     var rangeIndex by rememberSaveable { mutableIntStateOf(0) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var showAddList by rememberSaveable { mutableStateOf(false) }
     var editingLine by rememberSaveable { mutableIntStateOf(-1) }
@@ -135,6 +138,9 @@ fun OrgtdApp(
                         IconButton(onClick = onRefresh) {
                             Icon(Icons.Filled.Refresh, contentDescription = "刷新")
                         }
+                    }
+                    IconButton(onClick = { showSettings = true }) {
+                        Icon(Icons.Filled.Settings, contentDescription = "设置")
                     }
                 },
             )
@@ -215,6 +221,21 @@ fun OrgtdApp(
             onConfirm = { title, date ->
                 onAddTask(title, date)
                 showAdd = false
+            },
+        )
+    }
+
+    if (showSettings) {
+        SettingsSheet(
+            settings = state.settings,
+            onDismiss = { showSettings = false },
+            onPickFolder = {
+                showSettings = false
+                onPickFolder()
+            },
+            onSaveWebDav = { url, user, password ->
+                onSaveWebDav(url, user, password)
+                showSettings = false
             },
         )
     }

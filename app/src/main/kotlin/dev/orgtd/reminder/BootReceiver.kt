@@ -3,10 +3,8 @@ package dev.orgtd.reminder
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import dev.orgtd.TaskMapper
-import dev.orgtd.data.OrgPrefs
-import dev.orgtd.data.SafStore
+import dev.orgtd.data.Sources
 import dev.orgtd.orgmode.OrgDocument
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,9 +16,7 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val prefs = OrgPrefs(context)
-                val uri = prefs.treeUri?.let { runCatching { Uri.parse(it) }.getOrNull() } ?: return@launch
-                val text = SafStore(context, uri).read(prefs.fileName) ?: return@launch
+                val text = Sources.create(context)?.read()?.text ?: return@launch
                 ReminderScheduler.sync(context, TaskMapper.toTasks(OrgDocument.parse(text)))
             } finally {
                 pending.finish()

@@ -12,19 +12,28 @@
 
 ## 怎么工作
 
+App 内置 WebDAV 客户端，直接读写坚果云上的 `gtd.org`：
+
 ```
 Emacs (Mac)  ──sync──  坚果云 (dav.jianguoyun.com/dav/)
-                              │ WebDAV
-                        FolderSync (Android, 定时双向)
-                              │
-                    /storage/emulated/0/orgtd
-                              │ SAF 授权目录
+                              │ HTTPS WebDAV
                         orgtd App
 ```
 
-App 只读写一个被授权的普通目录，同步交给系统里的同步工具。文件是唯一真源，App 本地不存副本。
+也可以切成「本地目录」模式：把 FolderSync 同步落地的普通目录通过 SAF 授权给 App（备用方案，适合不想让 App 碰网络密码的场景）。
 
-> 为什么不直连坚果云：它把离线文件放在 `Android/data/nutstore.android/files/`，Android 11+ 第三方应用无权访问。
+> 为什么不能直接用坚果云 App 的目录：它的离线文件在 `Android/data/nutstore.android/files/`，Android 11+ 第三方应用无权访问，连目录选择器都不显示。
+
+## 配置 WebDAV
+
+1. 浏览器登录坚果云 → **安全选项 → 添加应用密码**，得到一个专用密码（不是登录密码）。
+2. App 右上角齿轮 → 选「坚果云 WebDAV」→ 填：
+   - 文件地址：`https://dav.jianguoyun.com/dav/<你的目录>/gtd.org`
+   - 账号：坚果云注册邮箱
+   - 应用密码：上一步生成的那串
+3. 点「保存并连接」，列表加载出来就成功了。
+
+密码用 Android Keystore 加密存储。写回前会用 ETag 校验，文件在 Mac 上被改过时 App 会提示刷新而不是覆盖。
 
 ## 现在的功能
 

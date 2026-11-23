@@ -1,9 +1,7 @@
 package dev.orgtd.reminder
 
 import android.content.Context
-import android.net.Uri
-import dev.orgtd.data.OrgPrefs
-import dev.orgtd.data.SafStore
+import dev.orgtd.data.Sources
 import dev.orgtd.orgmode.DateSpec
 import dev.orgtd.orgmode.OrgDocument
 import java.time.LocalDate
@@ -44,18 +42,15 @@ object ReminderActions {
     }
 
     private fun update(context: Context, transform: (OrgDocument) -> OrgDocument?): Boolean {
-        val prefs = OrgPrefs(context)
-        val uri = prefs.treeUri?.let { runCatching { Uri.parse(it) }.getOrNull() } ?: return false
-        val store = SafStore(context, uri)
+        val source = Sources.create(context) ?: return false
 
         return runCatching {
-            val text = store.read(prefs.fileName) ?: return false
-            val next = transform(OrgDocument.parse(text)) ?: return false
+            val snapshot = source.read() ?: return false
+            val next = transform(OrgDocument.parse(snapshot.text)) ?: return false
             val serialized = next.serialize()
-            if (serialized == text) return false
+            if (serialized == snapshot.text) return false
 
-            store.write("${prefs.fileName}.bak", text)
-            store.write(prefs.fileName, serialized)
+            source.write(serialized, snapshot, snapshot.text)
             true
         }.getOrDefault(false)
     }
