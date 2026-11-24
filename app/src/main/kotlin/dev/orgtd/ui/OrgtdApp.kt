@@ -37,6 +37,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -217,15 +218,16 @@ fun OrgtdApp(
         floatingActionButton = {
             when {
                 inDetail -> if (detailName != null) {
-                    FloatingActionButton(
+                    OrgtdFab(
                         onClick = {
                             addScope = detailLine
                             showAdd = true
                         },
-                    ) { Icon(Icons.Filled.Add, contentDescription = strings.newTask) }
+                        description = strings.newTask,
+                    )
                 }
 
-                state.folderSelected && tab != Tab.Search -> FloatingActionButton(
+                state.folderSelected && tab != Tab.Search -> OrgtdFab(
                     onClick = {
                         if (tab == Tab.Lists) {
                             showAddList = true
@@ -234,12 +236,8 @@ fun OrgtdApp(
                             showAdd = true
                         }
                     },
-                ) {
-                    Icon(
-                        Icons.Filled.Add,
-                        contentDescription = if (tab == Tab.Lists) strings.newList else strings.newTask,
-                    )
-                }
+                    description = if (tab == Tab.Lists) strings.newList else strings.newTask,
+                )
             }
         },
     ) { innerPadding ->
@@ -641,15 +639,14 @@ private fun TaskRow(
                 .fillMaxWidth()
                 .clickable { onOpen(task.line) }
                 .padding(
-                    start = 16.dp + ((task.level - 1).coerceAtLeast(0) * 14).dp,
+                    start = 4.dp + ((task.level - 1).coerceAtLeast(0) * 14).dp,
                     end = 16.dp,
-                    top = 11.dp,
-                    bottom = 11.dp,
+                    top = 3.dp,
+                    bottom = 3.dp,
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IosCheckbox(checked = task.done) { onToggle(task.line) }
-            androidx.compose.foundation.layout.Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     text = task.title,
@@ -913,6 +910,19 @@ private fun MissingFile(fileName: String, onPickFolder: () -> Unit) {
 private fun Loading() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
+    }
+}
+
+@Composable
+private fun OrgtdFab(onClick: () -> Unit, description: String) {
+    val apple = LocalAppleStyle.current
+    FloatingActionButton(
+        onClick = onClick,
+        shape = if (apple) CircleShape else FloatingActionButtonDefaults.shape,
+        containerColor = if (apple) MaterialTheme.colorScheme.primary else FloatingActionButtonDefaults.containerColor,
+        contentColor = if (apple) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
+    ) {
+        Icon(Icons.Filled.Add, contentDescription = description)
     }
 }
 

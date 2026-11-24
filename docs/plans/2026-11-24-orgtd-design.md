@@ -421,4 +421,7 @@ material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案�
 - 清单页分组卡片、清单详情、设置面板（Apple 时隐藏主题、显示说明）均正常；
 - logcat 无 FATAL / 未捕获异常。
 
-已知小问题：iOS 勾选框的视觉尺寸 24dp，点击热区也接近 24dp，比 Android 建议的 48dp 小；后续可以用外层 padding 扩大热区而不改视觉尺寸。FAB 仍是 Material 的圆角方形，尚未改成 iOS 圆形浮钮。
+两个小问题的修复（同日）：
+
+- 勾选框外层加了 48dp 的点击容器，视觉圆仍是 24dp；行内左边距从 16dp 改成 4dp，让 48dp 容器的中线保持原来的视觉位置，文字与分隔线仍然对齐在 52dp。实测点击圆外、热区内的位置（x≈60px）也能正确切换。
+- Apple 风格下 FAB 改成圆形、System Blue 底 + 白色加号；Material 风格保持原来的圆角方形与 `primaryContainer` 配色。

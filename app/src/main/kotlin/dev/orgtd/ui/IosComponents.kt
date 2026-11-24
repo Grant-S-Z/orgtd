@@ -53,25 +53,35 @@ fun IosDivider(insetStart: Dp = 52.dp) {
     )
 }
 
+/**
+ * iOS 圆形勾选框。视觉 24dp，点击热区 48dp（Android 无障碍建议的最小尺寸），
+ * 热区多出来的部分通过外层 Box 提供，不改变列表的视觉间距。
+ */
 @Composable
 fun IosCheckbox(checked: Boolean, onCheckedChange: () -> Unit) {
-    val shape = CircleShape
     Box(
         modifier = Modifier
-            .size(24.dp)
-            .clip(shape)
-            .then(
-                if (checked) {
-                    Modifier.background(MaterialTheme.colorScheme.primary)
-                } else {
-                    Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, shape)
-                },
-            )
+            .size(48.dp)
+            .clip(CircleShape)
             .clickable(onClick = onCheckedChange),
         contentAlignment = Alignment.Center,
     ) {
-        if (checked) {
-            Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .then(
+                    if (checked) {
+                        Modifier.background(MaterialTheme.colorScheme.primary)
+                    } else {
+                        Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (checked) {
+                Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            }
         }
     }
 }
