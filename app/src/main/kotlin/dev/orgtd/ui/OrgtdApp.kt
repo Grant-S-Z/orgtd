@@ -835,7 +835,7 @@ private fun taskMeta(task: TaskUi, today: LocalDate, strings: AppStrings): List<
     }
     task.closed?.let { add(strings.completedOn(strings.formatDate(it.toLocalDate(), today))) }
     task.repeater?.let { add(strings.repeats(it)) }
-    if (task.children > 0) add(strings.subtasks(task.children))
+    if (task.children > 0) add(strings.subtasksProgress(task.childrenDone, task.children))
     task.listName?.let { add(it) }
     if (task.tags.isNotEmpty()) add(task.tags.joinToString(" ") { "#$it" })
 }

@@ -5,129 +5,131 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 ![minSdk](https://img.shields.io/badge/Android-8.0%2B-green)
 
-**中文** · [English](README.en.md)
+[中文](README.zh-CN.md) · **English**
 
-把 org 文件当数据源的 Android GTD 客户端。在 Emacs 里管 `~/org`，在手机上用滴答清单式的界面看今天、勾任务、临时加一条——写回去的还是同一个纯文本 `.org` 文件。
+An Android GTD client that uses plain-text org files as its only data source. Keep your `~/org` in Emacs, then use a TickTick-style interface on your phone to see today's tasks, tick them off, or jot down a new one — everything is written back to the same `.org` file.
 
-![界面](docs/images/ios-style.png)
+![Screenshot](docs/images/ios-style.png)
 
-## 它解决什么
+## Why
 
-在 Mac 上用 Emacs 管理任务的人都遇到过：出门在外想看一眼今天要做什么、勾掉一条、随手记一件事，只能开电脑或者用手机 SSH。
+Anyone managing tasks in Emacs has hit this: you are away from your laptop, and all you need is to glance at today, tick one item off, or capture a thought. The alternatives are opening the laptop or SSH-ing from the phone.
 
-orgtd 不做第二套任务系统，也不复制一份数据到云端数据库：它直接读写你原来的 `gtd.org`，写回时**保留未改动行的原始字节**，所以回到 Emacs 打开文件看不到多余 diff。
+orgtd is not another task database. It reads and writes your existing `gtd.org` directly, and **preserves every untouched line byte-for-byte** on write-back, so opening the file in Emacs shows no spurious diff.
 
-## 功能
+## Features
 
-**任务**
+**Tasks**
 
-- 今天 / 本周 / 全部 / 已完成四档视图，逾期标红，子任务缩进并计数。
-- 新建、改标题、改日期与时刻、改优先级、删除（可撤销）。
-- 左滑完成、右滑推迟一天；详情面板可推迟 1 / 3 / 7 天。
-- 详情面板显示标题下的正文备注，保留原有换行。
+- Four views: Today / This week / All / Done, with overdue highlighting and nested subtasks.
+- Create, rename, reschedule (date and time), set priority, delete with undo.
+- Swipe left to complete, swipe right to postpone by one day; the detail sheet offers 1 / 3 / 7-day postpone.
+- The detail sheet shows the body text under the heading, preserving line breaks.
+- Multi-level headings become subtasks. When every direct subtask is done, the parent task is completed automatically; reopening a subtask reopens the parent.
 
-**组织**
+**Organization**
 
-- Inbox、清单（org 的顶层 headline 就是清单，点进去看该清单下的任务）。
-- 清单支持新建、重命名、上下移动、软删除。
-- 搜索覆盖标题、正文和标签。
-- 已完成任务可归档：写入 `:ARCHIVED_AT:`，从「已完成」隐藏，切到「已归档」可恢复。
+- Inbox and lists (a top-level org heading is a list; open one to see its tasks).
+- Create, rename, reorder, and soft-delete lists.
+- Search covers titles, body text, and tags.
+- Completed tasks can be archived: an `:ARCHIVED_AT:` property hides them from Done; switch to Archived to restore them.
 
-**同步与离线**
+**Sync and offline**
 
-- 直连坚果云 WebDAV，读写远端 `gtd.org`；也支持授权本地目录（配合 FolderSync 等工具）。
-- 后台每 15 分钟拉取一次远端内容并重排提醒。
-- 断网时显示上次同步的副本，写操作会被拦住并提示，不会静默丢改动。
-- 每次写入前重新读取远端，把本地改动叠加在最新内容上（按 `:ID:` 定位），不做整文件覆盖。
+- Connect directly to Nutstore (坚果云) over WebDAV, or grant the app a local folder kept in sync by tools such as FolderSync.
+- A background job pulls the remote file and reschedules reminders every 15 minutes.
+- When offline, the last synced copy is shown read-only: writes are blocked with a clear message instead of silently lost.
+- Before each write the remote file is re-read and the local change is applied on top of the latest content (matched by `:ID:`), never a blind whole-file overwrite.
 
-**提醒**
+**Reminders**
 
-- 带时刻的 `SCHEDULED` / `DEADLINE` 精确提醒，通知上可直接「完成」或「推迟到明天」。
-- 可选让只有日期没有时刻的任务在 9:00 提醒。
+- Exact reminders for `SCHEDULED` / `DEADLINE` entries that have a time, with "Complete" and "Postpone to tomorrow" actions in the notification.
+- Optional 9:00 reminder for date-only tasks.
 
-**界面**
+**Interface**
 
-- 中文 / English 双语，可跟随系统或单独指定，切换即时生效。
-- 两套界面风格：Apple（默认，iOS 观感）与 Material 3（含五套配色 + 动态取色）。
-- 浅色 / 深色 / 跟随系统。
+- Chinese / English, following the system language or set per app; switches take effect immediately.
+- Two visual styles: Apple (default, iOS-like) and Material 3 (five colour schemes plus dynamic colour).
+- Light / dark / follow-system appearance.
+- Settings → About can check GitHub Releases for a newer version.
 
-## 安装
+## Install
 
-从 [Releases](https://github.com/Grant-S-Z/orgtd/releases) 下载最新的 `app-release.apk` 安装。
+Download the latest `app-release.apk` from [Releases](https://github.com/Grant-S-Z/orgtd/releases).
 
-如果手机上装过 debug 包，需要先卸载——两者签名不同，不能覆盖安装。 org 文件本身不受影响。
+If a debug build is already installed, uninstall it first — the two are signed with different keys and cannot overwrite each other. Your org files are not affected.
 
-### 华为 / HarmonyOS
+### Huawei / HarmonyOS
 
-HarmonyOS 4.x 的 Android 兼容层是 Android 12，可直接装 APK（5.0 / NEXT 不再兼容）。两步系统设置会影响使用：
+HarmonyOS 4.x ships an Android 12 compatibility layer and runs the APK as-is (HarmonyOS 5 / NEXT drops Android app support). Two system settings matter:
 
-1. **纯净模式**：关闭「设置 → 系统和更新 → 纯净模式 → 增强防护」，安装时勾选「已了解此应用未经检测」。
-2. **应用启动管理**：把 orgtd 设为手动管理，允许自启动和后台活动，否则提醒可能被系统清掉。
+1. **Pure Mode**: turn off "Settings → System & updates → Pure Mode → Enhanced protection" before installing, and confirm the "unverified app" prompt.
+2. **App launch management**: set orgtd to manual management and allow auto-launch and background activity, otherwise the system may kill reminder alarms.
 
-## 配置
+## Setup
 
-### 坚果云 WebDAV（推荐）
+### Nutstore WebDAV (recommended)
 
-1. 浏览器登录坚果云 → **安全选项 → 添加应用密码**，生成一个专用密码（不是登录密码）。
-2. App 右上角齿轮 → 存储位置选「坚果云 WebDAV」，填：
-   - 文件地址：`https://dav.jianguoyun.com/dav/<你的目录>/gtd.org`
-   - 账号：坚果云注册邮箱
-   - 应用密码：第 1 步生成的值
-3. 点「保存并连接」。
+1. Sign in to Nutstore in a browser → **Security → Add app password** to generate a dedicated password (not your login password).
+2. In the app, open Settings → Storage → "Nutstore WebDAV" and fill in:
+   - File URL: `https://dav.jianguoyun.com/dav/<your folder>/gtd.org`
+   - Account: your Nutstore email
+   - App password: the value from step 1
+3. Tap "Save and connect".
 
-密码用 Android Keystore 加密存储。写入前会重新读取远端内容再叠加改动，避免覆盖另一端的修改。
+The app password is encrypted with the Android Keystore. Each write re-reads the remote file first, so changes made on the other device are preserved.
 
-### 本地目录
+### Local folder
 
-不想让 App 持有网络密码时，可以用 FolderSync 之类工具把文件同步到手机普通目录，再让 App 授权该目录。App 只读写这个目录里的 `gtd.org`。
+If you would rather not give the app a network password, sync the file to a normal folder with FolderSync, then grant orgtd that folder. The app only reads and writes `gtd.org` inside it.
 
-> 不能用坚果云 App 自己的离线目录：它在 `Android/data/nutstore.android/files/` 下，Android 11+ 禁止其他应用访问。
+> The Nutstore app's own offline folder cannot be used: it lives under `Android/data/nutstore.android/files/`, which Android 11+ blocks other apps from accessing.
 
-### 写回 org 的约定
+### What gets written back to org
 
-| 手机上的东西 | 写回 org 的样子 |
+| In the app | In the org file |
 |---|---|
-| 清单 | 顶层标题 `* 工作` |
-| 任务 | 子标题 `** TODO 写周报` |
-| 完成 / 归档 | `DONE` + `CLOSED:` / 属性 `:ARCHIVED_AT:` |
-| 日期 / 截止 | `SCHEDULED:` / `DEADLINE:` |
-| 重复 | `+1w`（按日历）或 `.+3d`（按完成后） |
-| 优先级 | `[#A]` / `[#B]` / `[#C]` |
-| 备注 | 标题下的正文 |
+| List | Top-level heading `* Work` |
+| Task | Sub-heading `** TODO Write report` |
+| Done / archived | `DONE` + `CLOSED:` / property `:ARCHIVED_AT:` |
+| Scheduled / due | `SCHEDULED:` / `DEADLINE:` |
+| Repeat | `+1w` (calendar) or `.+3d` (from completion) |
+| Priority | `[#A]` / `[#B]` / `[#C]` |
+| Notes | Body text under the heading |
 
-状态只写 `TODO` 和 `DONE`，这是 Emacs 的默认关键字，因此不需要额外的 `#+TODO:` 声明。
+Only `TODO` and `DONE` are written as states — these are Emacs defaults, so no extra `#+TODO:` declaration is needed.
 
-## 开发
+## Development
 
-模块：
+Modules:
 
-- `:orgmode` — 纯 JVM 的 org 解析与写回库，不依赖 Android，可单独测试。
-- `:app` — Jetpack Compose 界面与存储层。
+- `:orgmode` — pure-JVM org parser and writer, no Android dependencies, testable on its own.
+- `:app` — Jetpack Compose UI and storage layer.
 
-构建（macOS / Apple Silicon，JDK 21，Android SDK 37.1）：
+Build (macOS / Apple Silicon, JDK 21, Android SDK 37.1):
 
 ```bash
-./scripts/setup-android.sh                              # 一次性配置 JDK 与 SDK
-./gradlew :orgmode:test :app:assembleDebug              # 测试 + debug 包
+./scripts/setup-android.sh                              # one-time JDK + SDK setup
+./gradlew :orgmode:test :app:assembleDebug              # tests + debug APK
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-不想装手机时用模拟器窗口预览：
+Prefer a desktop preview over installing on a phone:
 
 ```bash
 ./scripts/dev-preview.sh
 ```
 
-它会启动带窗口的 AVD、装上最新包并推入示例文件；目录授权第一次需要手动点一次。
+It starts a windowed AVD, installs the latest build, and pushes a sample file; folder permission has to be granted manually once.
 
-构建底座：AGP 9.5.2 / Gradle 9.9.2 / Kotlin 2.4.21 / compileSdk 37.1 / Compose BOM 2026.11.01。
+Toolchain: AGP 9.5.2 / Gradle 9.9.2 / Kotlin 2.4.21 / compileSdk 37.1 / Compose BOM 2026.11.01.
 
-## 文档
+## Docs
 
-- [设计文档](docs/plans/2026-11-24-orgtd-design.md)：数据映射、解析策略、同步与冲突处理、里程碑与决策记录。
-- [更新日志](CHANGELOG.md)
-- [发布流程](RELEASING.md)：签名、CI、版本号规则。
+- [Design document](docs/plans/2026-11-24-orgtd-design.md): data mapping, parsing strategy, sync and conflict handling, milestones and decisions.
+- [Changelog](CHANGELOG.md)
+- [Releasing](RELEASING.md): signing, CI, versioning rules.
 
-## 许可
+## License
 
-GPL-3.0-or-later，见 [LICENSE](LICENSE)。选它是因为 org 生态里的 Android 客户端（Orgzly）同为 GPLv3，避免将来参考实现时产生许可冲突。
+GPL-3.0-or-later, see [LICENSE](LICENSE). This matches Orgzly, the other major Android org client (also GPLv3), so reference implementations can be studied without licence conflicts.

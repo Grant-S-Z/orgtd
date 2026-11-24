@@ -383,6 +383,59 @@ class OrgDocumentTest {
         )
     }
 
+    // ------------------------------------------------------------ 父子任务
+
+    @Test
+    fun `子任务全部完成时父任务自动完成`() {
+        val now = LocalDateTime.of(2026, 11, 24, 20, 0)
+        var doc = OrgDocument.parse("* 项目\n** TODO 父任务\n*** TODO 子一\n*** TODO 子二\n")
+
+        doc = doc.ensureId(doc.entries.first { it.title == "父任务" })
+        doc = doc.ensureId(doc.entries.first { it.title == "子一" })
+        doc = doc.ensureId(doc.entries.first { it.title == "子二" })
+        val childOneId = doc.entries.first { it.title == "子一" }.id!!
+        val childTwoId = doc.entries.first { it.title == "子二" }.id!!
+
+        doc = doc.toggleDone(doc.entries.first { it.title == "子一" }, now)
+        doc = doc.completeDoneAncestors(childOneId, now)
+        assertEquals("TODO", doc.entries.first { it.title == "父任务" }.keyword)
+
+        doc = doc.toggleDone(doc.entries.first { it.title == "子二" }, now)
+        doc = doc.completeDoneAncestors(childTwoId, now)
+        assertEquals("DONE", doc.entries.first { it.title == "父任务" }.keyword)
+        assertTrue(doc.serialize().contains("CLOSED: [2026-11-24 Tue 20:00]"))
+    }
+
+    @Test
+    fun `重新打开子任务会把父任务改回 TODO`() {
+        val now = LocalDateTime.of(2026, 11, 24, 20, 0)
+        var doc = OrgDocument.parse(
+            "* 项目\n** DONE 父任务\nCLOSED: [2026-11-24 Tue 19:00]\n*** DONE 子一\n*** DONE 子二\n",
+        )
+        doc = doc.ensureId(doc.entries.first { it.title == "子一" })
+        val childId = doc.entries.first { it.title == "子一" }.id!!
+
+        val reopened = doc.toggleDone(doc.entries.first { it.title == "子一" }, now)
+        assertEquals("TODO", reopened.entries.first { it.title == "子一" }.keyword)
+
+        val cascaded = reopened.reopenAncestorsWithOpenChild(childId, now)
+        assertEquals("TODO", cascaded.entries.first { it.title == "父任务" }.keyword)
+        assertTrue(!cascaded.serialize().contains("CLOSED: [2026-11-24 Tue 19:00]"))
+    }
+
+    @Test
+    fun `清单标题不会被自动完成`() {
+        val now = LocalDateTime.of(2026, 11, 24, 20, 0)
+        var doc = OrgDocument.parse("* 清单\n** TODO 唯一任务\n")
+        doc = doc.ensureId(doc.entries.first { it.title == "唯一任务" })
+        val id = doc.entries.first { it.title == "唯一任务" }.id!!
+
+        doc = doc.toggleDone(doc.entries.first { it.title == "唯一任务" }, now)
+        doc = doc.completeDoneAncestors(id, now)
+        val list = doc.entries.first { it.title == "清单" }
+        assertEquals(null, list.keyword)
+    }
+
     private fun lineOf(headline: String): Int {
         val lines = source.split("\n")
         val index = lines.indexOfFirst { it == headline }

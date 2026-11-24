@@ -23,11 +23,8 @@ object TaskMapper {
                 listName = owningList(lists, headline.lineIndex),
                 level = headline.level,
                 closed = headline.closed,
-                children = doc.entries.count {
-                    it.level == headline.level + 1 &&
-                        it.lineIndex > headline.lineIndex &&
-                        it.lineIndex < headline.endExclusive
-                },
+                children = childrenOf(doc, headline).size,
+                childrenDone = childrenOf(doc, headline).count { it.isDone },
                 reminderAt = reminderAt(headline),
                 body = bodyText(doc, headline),
                 archived = headline.properties.containsKey("ARCHIVED_AT"),
@@ -41,6 +38,14 @@ object TaskMapper {
                 !it.done && it.line > list.lineIndex && it.line < list.endExclusive
             }
             ListUi(list.lineIndex, list.title, open)
+        }
+
+    private fun childrenOf(doc: OrgDocument, parent: Headline): List<Headline> =
+        doc.entries.filter {
+            it.level == parent.level + 1 &&
+                it.lineIndex > parent.lineIndex &&
+                it.lineIndex < parent.endExclusive &&
+                it.keyword != null
         }
 
     private val PLANNING = Pattern.compile("^\\s*(SCHEDULED|DEADLINE|CLOSED):")

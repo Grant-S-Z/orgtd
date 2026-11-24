@@ -1,5 +1,7 @@
 package dev.orgtd.ui
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -15,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -30,11 +33,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.orgtd.Language
@@ -45,6 +51,11 @@ import dev.orgtd.data.StorageMode
 import dev.orgtd.ui.theme.OrgtdPalettes
 import dev.orgtd.ui.theme.ThemePalette
 import dev.orgtd.ui.theme.displayName
+import dev.orgtd.update.UpdateChecker
+import dev.orgtd.update.UpdateInfo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +77,12 @@ fun SettingsSheet(
         enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
     )
     val scroll = rememberScrollState()
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var checking by remember { mutableStateOf(false) }
+    var checkMessage by remember { mutableStateOf<String?>(null) }
+    var available by remember { mutableStateOf<UpdateInfo?>(null) }
 
     var mode by rememberSaveable { mutableStateOf(settings.mode) }
     var fileName by rememberSaveable(settings.fileNameValue) { mutableStateOf(settings.fileNameValue) }
@@ -248,7 +265,64 @@ fun SettingsSheet(
                 Button(onClick = { onSetFileName(fileName) }) { Text(strings.save) }
             }
 
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+            Text(strings.about, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = strings.versionLabel(UpdateChecker.currentVersion(context)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(
+                onClick = {
+                    scope.launch {
+                        checking = true
+                        checkMessage = null
+                        val result = withContext(Dispatchers.IO) { UpdateChecker.check(context) }
+                        checking = false
+                        val current = UpdateChecker.currentVersion(context)
+                        result.onSuccess { info ->
+                            if (UpdateChecker.isNewer(info.latestVersion, current)) {
+                                available = info
+                            } else {
+                                checkMessage = strings.upToDate
+                            }
+                        }.onFailure { error ->
+                            checkMessage = "${strings.checkFailed}: ${error.message}"
+                        }
+                    }
+                },
+                enabled = !checking,
+            ) { Text(if (checking) strings.checking else strings.checkUpdate) }
+            checkMessage?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             TextButton(onClick = onDismiss) { Text(strings.close) }
         }
+    }
+
+    available?.let { info ->
+        AlertDialog(
+            onDismissRequest = { available = null },
+            title = { Text(strings.newVersion(info.latestVersion)) },
+            text = { Text(info.releaseUrl) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.releaseUrl)))
+                        }
+                        available = null
+                    },
+                ) { Text(strings.openDownload) }
+            },
+            dismissButton = {
+                TextButton(onClick = { available = null }) { Text(strings.cancel) }
+            },
+        )
     }
 }

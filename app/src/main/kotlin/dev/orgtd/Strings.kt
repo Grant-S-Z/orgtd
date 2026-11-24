@@ -66,6 +66,14 @@ class AppStrings(private val en: Boolean) {
     val postponeInWeek = s("推迟一周", "Postpone a week")
     val swipeComplete = s("完成", "Complete")
     val swipePostpone = s("推迟", "Postpone")
+    val about = s("关于", "About")
+    fun versionLabel(version: String) = s("版本 $version", "Version $version")
+    val checkUpdate = s("检查更新", "Check for updates")
+    val checking = s("检查中…", "Checking…")
+    val upToDate = s("已是最新版本", "You are up to date")
+    fun newVersion(version: String) = s("发现新版本 $version", "Version $version is available")
+    val openDownload = s("打开下载页", "Open download page")
+    val checkFailed = s("检查更新失败", "Update check failed")
     val priorityNone = s("无", "None")
     val priorityHigh = s("高", "High")
     val priorityMedium = s("中", "Medium")
@@ -147,6 +155,8 @@ class AppStrings(private val en: Boolean) {
     // 任务行
     fun repeats(rule: String) = s("重复 $rule", "Repeats $rule")
     fun subtasks(count: Int) = s("$count 个子任务", if (count == 1) "1 subtask" else "$count subtasks")
+    fun subtasksProgress(done: Int, total: Int) =
+        s("$done/$total 个子任务", "$done/$total subtasks")
     fun completedOn(date: String) = s("完成于 $date", "Done $date")
 
     // 删除

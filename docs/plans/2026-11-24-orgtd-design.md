@@ -481,3 +481,14 @@ material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案�
 
 - 搜索排除已归档任务，避免「归档了却还能搜到」的困惑。
 - 后台同步只在 WebDAV 模式注册：`OrgtdApplication` 启动时按当前存储方式决定，切换存储（选本地目录 / 保存 WebDAV）时立即 `enqueue` 或 `cancelUniqueWork`。本地模式不再每 15 分钟空转一次。
+
+## 30. 父子任务、检查更新与 README（2026-11-24）
+
+- **父子任务**：`OrgDocument.completeDoneAncestors` / `reopenAncestorsWithOpenChild`。
+  - 直接子任务（下一级、带状态词的条目）全部 `DONE` 时，最近的 `TODO` 祖先自动变 `DONE` 并写 `CLOSED`，逐级向上；
+  - 重新打开子任务时，已是 `DONE` 且存在未完成子任务的祖先改回 `TODO` 并删掉 `CLOSED`；
+  - 清单标题（无状态词）不会被误完成；重复任务完成后只推进日期，不参与级联；
+  - 用 `:ID:` 定位目标条目，避免插入 `CLOSED` 行导致行号漂移。
+  - 列表上父任务显示 `已完成/总数 个子任务` 进度。
+- **检查更新**：设置 → 关于，请求 `api.github.com/repos/Grant-S-Z/orgtd/releases/latest`，比较 `tag_name` 与 `versionName`；有新版本弹窗提供「打开下载页」。只在手动点击时请求，不做启动自动检查。
+- **README**：英文版改为默认 `README.md`，中文版移到 `README.zh-CN.md`，两边互加切换链接。

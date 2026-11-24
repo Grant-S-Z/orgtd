@@ -45,6 +45,47 @@ class OrgDocument private constructor(val lines: List<String>) {
         return OrgDocument(out)
     }
 
+    /**
+     * 子任务全部完成时，把祖先任务也标记为 DONE（逐级向上）。
+     *
+     * 只处理「带状态词的条目」作为父任务；清单标题（无状态词）不会被误完成。
+     * 通过 `:ID:` 定位目标条目，插入 CLOSED 行导致的行号变化不会影响定位。
+     */
+    fun completeDoneAncestors(targetId: String, now: LocalDateTime): OrgDocument {
+        var doc = this
+        repeat(16) {
+            val entries = doc.entries
+            val target = entries.firstOrNull { it.id == targetId } ?: return doc
+            val ancestor = nearestAncestor(entries, target) ?: return doc
+            if (ancestor.keyword != "TODO") return doc
+
+            val children = directTaskChildren(entries, ancestor)
+            if (children.isEmpty() || !children.all { it.isDone }) return doc
+
+            doc = doc.toggleDone(ancestor, now)
+        }
+        return doc
+    }
+
+    /** 子任务被重新打开时，把已经是 DONE 的祖先任务改回 TODO（逐级向上）。 */
+    fun reopenAncestorsWithOpenChild(targetId: String, now: LocalDateTime): OrgDocument {
+        var doc = this
+        repeat(16) {
+            val entries = doc.entries
+            val target = entries.firstOrNull { it.id == targetId } ?: return doc
+            val ancestor = nearestAncestor(entries, target) ?: return doc
+            if (ancestor.keyword != "DONE") return doc
+
+            val children = directTaskChildren(entries, ancestor)
+            if (children.any { !it.isDone }) {
+                doc = doc.toggleDone(ancestor, now)
+            } else {
+                return doc
+            }
+        }
+        return doc
+    }
+
     /** 设置 / 清除 SCHEDULED。传 null 表示删除。 */
     fun setScheduled(target: Headline, spec: DateSpec?): OrgDocument {
         val out = lines.toMutableList()
@@ -370,6 +411,19 @@ private val FILE_KEYWORDS_RE = Regex("""^#\+(?:SEQ_)?TODO:\s*(.*)$""", RegexOpti
 private val TS_RE = Regex(
     """^(\d{4})-(\d{2})-(\d{2})(?:\s+[A-Za-z]{3})?(?:\s+(\d{1,2}):(\d{2}))?(?:\s+((?:\+\+?|\.\+)\d+[hdwmy]))?(?:\s+(-\d+[hdwmy]))?$""",
 )
+
+private fun directTaskChildren(entries: List<Headline>, parent: Headline): List<Headline> =
+    entries.filter {
+        it.level == parent.level + 1 &&
+            it.lineIndex > parent.lineIndex &&
+            it.lineIndex < parent.endExclusive &&
+            it.keyword != null
+    }
+
+private fun nearestAncestor(entries: List<Headline>, target: Headline): Headline? =
+    entries
+        .filter { it.level < target.level && it.lineIndex < target.lineIndex && target.lineIndex < it.endExclusive }
+        .maxByOrNull { it.level }
 
 private fun splitLines(text: String): List<String> {
     if (text.isEmpty()) return emptyList()

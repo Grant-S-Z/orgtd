@@ -42,6 +42,7 @@ data class TaskUi(
     val level: Int = 1,
     val closed: LocalDateTime? = null,
     val children: Int = 0,
+    val childrenDone: Int = 0,
     val reminderAt: LocalDateTime? = null,
     val body: String = "",
     val archived: Boolean = false,
@@ -264,12 +265,20 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         val entry = doc.entryAt(at) ?: error(strings.staleTask)
         val withId = doc.ensureId(entry)
         val target = withId.entryAt(at) ?: error(strings.staleTask)
+        val targetId = target.id
+        val now = LocalDateTime.now()
 
-        // 重复任务：完成即推进日期，状态保持 TODO
+        // 重复任务：完成即推进日期，状态保持 TODO（不参与父子级联）
         if (!target.isDone) {
             withId.advanceRepeat(target, LocalDate.now())?.let { return@mutate it }
         }
-        withId.toggleDone(target, LocalDateTime.now())
+
+        val toggled = withId.toggleDone(target, now)
+        when {
+            targetId == null -> toggled
+            target.isDone -> toggled.reopenAncestorsWithOpenChild(targetId, now)
+            else -> toggled.completeDoneAncestors(targetId, now)
+        }
     }
 
     fun addTask(title: String, date: LocalDate?) {
