@@ -43,6 +43,10 @@ class OrgPrefs(context: Context) {
             ?: UiStyle.APPLE
         set(value) = prefs.edit { putString(KEY_UI_STYLE, value.name) }
 
+    var remindDateOnly: Boolean
+        get() = prefs.getBoolean(KEY_REMIND_DATE_ONLY, false)
+        set(value) = prefs.edit { putBoolean(KEY_REMIND_DATE_ONLY, value) }
+
     var language: Language
         get() = Language.entries.firstOrNull { it.name == prefs.getString(KEY_LANGUAGE, null) }
             ?: Language.SYSTEM
@@ -66,6 +70,7 @@ class OrgPrefs(context: Context) {
         private const val KEY_THEME = "theme_id"
         private const val KEY_DARK_MODE = "dark_mode"
         private const val KEY_LANGUAGE = "language"
+        private const val KEY_REMIND_DATE_ONLY = "remind_date_only"
         private const val KEY_UI_STYLE = "ui_style"
     }
 }

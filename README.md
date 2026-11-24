@@ -49,6 +49,8 @@ Emacs (Mac)  ──sync──  坚果云 (dav.jianguoyun.com/dav/)
 - 精确提醒：只对带时刻的 `SCHEDULED`/`DEADLINE` 生效，通知上可直接「完成 / 推迟到明天」。
 - 离线可读：网络不通时展示上次同步的副本，写操作会被拦住并提示，不会静默丢改动。
 - 写前校验文件是否被外部修改，写前留 `gtd.org.bak`。
+- 后台每 15 分钟同步一次远端文件并重排提醒（WorkManager）；文件名可在设置里修改。
+- 可选「日期任务默认 9:00 提醒」：只有日期没有时刻的任务也能提醒。
 
 ## 保真怎么做到的
 
@@ -130,6 +132,12 @@ emulator -avd gtd35 -no-snapshot &
 
 - `:orgmode` — 纯 JVM 的 org 解析/序列化库，可单独测试，将来也能给 CLI 用。
 - `:app` — Jetpack Compose 界面。
+
+## 发布
+
+签名、出包与 GitHub Release 流程见 [RELEASING.md](RELEASING.md)，版本变更见 [CHANGELOG.md](CHANGELOG.md)。
+
+> 发布密钥在仓库外（`~/orgtd-release-keys/`），丢失将无法覆盖升级，务必另行备份。
 
 ## 许可
 

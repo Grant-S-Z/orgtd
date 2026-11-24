@@ -13,11 +13,11 @@ SCHEDULED: <2026-11-22 Sun 08:00 +1d>
 * TODO Exercise
 SCHEDULED: <2026-11-22 Sun +1d>
 * TODO 修改培养计划
-* TODO 发 HPK rediffused 组分拟合的 issue comment
+* TODO 发项目 A 数据处理 的 issue comment
 SCHEDULED: <2026-11-22 Sun>
-* TODO 更新 15906 channel example 的图
+* TODO 更新示例数据 的图
 SCHEDULED: <2026-11-22 Sun>
-* TODO push 新的 IRF slides，并 @ chuanhui
+* TODO push 新的组会 slides，并 @ 同事
 SCHEDULED: <2026-11-22 Sun>
-* TODO 给 BALM 总结一份汇报 slides
+* TODO 给项目 B 总结一份汇报 slides
 SCHEDULED: <2026-11-22 Sun>

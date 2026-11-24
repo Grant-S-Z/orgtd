@@ -63,6 +63,8 @@ data class SettingsUi(
     val darkMode: DarkMode = DarkMode.SYSTEM,
     val language: Language = Language.SYSTEM,
     val uiStyle: UiStyle = UiStyle.APPLE,
+    val remindDateOnly: Boolean = false,
+    val fileNameValue: String = "gtd.org",
 )
 
 data class UiState(
@@ -128,6 +130,8 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         darkMode = prefs.darkMode,
         language = prefs.language,
         uiStyle = prefs.uiStyle,
+        remindDateOnly = prefs.remindDateOnly,
+        fileNameValue = prefs.fileName,
     )
 
     private fun publishSettings() {
@@ -163,6 +167,26 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
     fun setDarkMode(mode: DarkMode) {
         prefs.darkMode = mode
         publishSettings()
+    }
+
+    fun setRemindDateOnly(enabled: Boolean) {
+        prefs.remindDateOnly = enabled
+        publishSettings()
+
+        // 立刻按新策略重排，不用等下一次刷新
+        viewModelScope.launch(Dispatchers.IO) {
+            ReminderScheduler.sync(getApplication(), _state.value.tasks)
+        }
+    }
+
+    fun setFileName(name: String) {
+        val cleaned = name.trim().ifBlank { OrgPrefs.DEFAULT_FILE }
+        if (cleaned == prefs.fileName) return
+        prefs.fileName = cleaned
+        source = Sources.create(getApplication())
+        lastText = null
+        publishSettings()
+        refresh()
     }
 
     fun setUiStyle(style: UiStyle) {

@@ -94,6 +94,8 @@ class AppStrings(private val en: Boolean) {
     val languageEnglish = "English"
     val storage = s("存储位置", "Storage")
     val localFolder = s("本地目录", "Local folder")
+    val remindDateOnlyLabel = s("日期任务默认 9:00 提醒", "Remind date-only tasks at 9:00")
+    val fileNameLabel = s("文件名", "File name")
     val webdav = s("坚果云 WebDAV", "WebDAV")
     val davUrlLabel = s("org 文件地址", "org file URL")
     val davAccountLabel = s("坚果云账号（邮箱）", "Nutstore account (email)")

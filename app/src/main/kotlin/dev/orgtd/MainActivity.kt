@@ -136,6 +136,8 @@ class MainActivity : ComponentActivity() {
                     onSetDarkMode = viewModel::setDarkMode,
                     onSetLanguage = viewModel::setLanguage,
                     onSetUiStyle = viewModel::setUiStyle,
+                    onSetRemindDateOnly = viewModel::setRemindDateOnly,
+                    onSetFileName = viewModel::setFileName,
                     onDismissError = viewModel::clearError,
                 )
                 }

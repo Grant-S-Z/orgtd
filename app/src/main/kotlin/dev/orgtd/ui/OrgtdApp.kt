@@ -136,6 +136,8 @@ fun OrgtdApp(
     onSetDarkMode: (DarkMode) -> Unit,
     onSetLanguage: (Language) -> Unit,
     onSetUiStyle: (UiStyle) -> Unit,
+    onSetRemindDateOnly: (Boolean) -> Unit,
+    onSetFileName: (String) -> Unit,
     onDismissError: () -> Unit,
 ) {
     val strings = LocalStrings.current
@@ -341,6 +343,8 @@ fun OrgtdApp(
             onSetDarkMode = onSetDarkMode,
             onSetLanguage = onSetLanguage,
             onSetUiStyle = onSetUiStyle,
+            onSetRemindDateOnly = onSetRemindDateOnly,
+            onSetFileName = onSetFileName,
         )
     }
 

@@ -6,6 +6,9 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.edit
 import dev.orgtd.TaskUi
+import dev.orgtd.data.OrgPrefs
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 
 /**
@@ -33,10 +36,13 @@ object ReminderScheduler {
 
         val now = System.currentTimeMillis()
         val scheduled = mutableSetOf<String>()
+        val defaultTime = if (OrgPrefs(context).remindDateOnly) LocalTime.of(9, 0) else null
 
         tasks.forEach { task ->
             if (task.done) return@forEach
-            val at = task.reminderAt ?: return@forEach
+            val at = task.reminderAt
+                ?: task.date?.let { date -> defaultTime?.let { LocalDateTime.of(date, it) } }
+                ?: return@forEach
             val trigger = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
             if (trigger <= now) return@forEach
 

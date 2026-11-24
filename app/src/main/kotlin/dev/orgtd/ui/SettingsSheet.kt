@@ -23,6 +23,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,6 +57,8 @@ fun SettingsSheet(
     onSetDarkMode: (DarkMode) -> Unit,
     onSetLanguage: (Language) -> Unit,
     onSetUiStyle: (UiStyle) -> Unit,
+    onSetRemindDateOnly: (Boolean) -> Unit,
+    onSetFileName: (String) -> Unit,
 ) {
     val strings = LocalStrings.current
     val sheetState = rememberBottomSheetState(
@@ -64,6 +68,7 @@ fun SettingsSheet(
     val scroll = rememberScrollState()
 
     var mode by rememberSaveable { mutableStateOf(settings.mode) }
+    var fileName by rememberSaveable(settings.fileNameValue) { mutableStateOf(settings.fileNameValue) }
     var url by rememberSaveable { mutableStateOf(settings.webDavUrl) }
     var user by rememberSaveable { mutableStateOf(settings.webDavUser) }
     val password = rememberTextFieldState("")
@@ -212,6 +217,35 @@ fun SettingsSheet(
                         enabled = url.isNotBlank() && user.isNotBlank(),
                     ) { Text(strings.saveConnect) }
                 }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = strings.remindDateOnlyLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = settings.remindDateOnly,
+                    onCheckedChange = onSetRemindDateOnly,
+                )
+            }
+
+            OutlinedTextField(
+                value = fileName,
+                onValueChange = { fileName = it },
+                label = { Text(strings.fileNameLabel) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row {
+                Button(onClick = { onSetFileName(fileName) }) { Text(strings.save) }
             }
 
             TextButton(onClick = onDismiss) { Text(strings.close) }
