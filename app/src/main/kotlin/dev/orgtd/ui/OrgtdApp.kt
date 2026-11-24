@@ -548,8 +548,9 @@ private fun ListTasks(
         return
     }
 
+    // 归档任务彻底消失：详情页只显示未归档的（含 DONE），要查看归档去「已完成 → 已归档」
     val tasks = state.tasks.filter {
-        if (listLine == UNGROUPED_LIST) it.listName == null else it.listName == name
+        !it.archived && (if (listLine == UNGROUPED_LIST) it.listName == null else it.listName == name)
     }
     val groups = state.groups.filter {
         if (listLine == UNGROUPED_LIST) it.listLine == null else it.listLine == listLine
@@ -773,7 +774,8 @@ private fun SearchTab(
         if (query.isBlank()) {
             EmptyHint(strings.searchPrompt)
         } else {
-            val hits = state.tasks.filter { it.matches(query) && !it.archived && !it.projectCompleted }
+            // DONE 和已完成项目的任务都可以被搜到；只有归档才彻底消失
+            val hits = state.tasks.filter { it.matches(query) && !it.archived }
             TaskList(hits, LocalDate.now(), onToggle, onOpen, onPostpone, strings.noMatches)
         }
     }

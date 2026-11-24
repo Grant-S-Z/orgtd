@@ -549,6 +549,6 @@ material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案�
 - `GroupUi`：项目行的名称、路径、所属清单、待办/完成数、是否完成；`UiState.groups` 随每次刷新重建。
 - 清单详情按项目分组渲染：项目头带计数、`+`（在该项目下新建任务）、菜单（标记完成）；已完成项目归到底部「已完成项目」；项目下任务全完成但未标记时显示提示。
 - 项目完成 = 标题标签 `:PROJECT_DONE:`（同时识别 `:ARCHIVE:`），手动触发，不改子任务状态。`OrgDocument.addTag/removeTag` 负责标题行标签的解析与重建。
-- 完成状态影响：`today / week / ungrouped` 和 `All`、搜索结果都过滤 `projectCompleted`；清单详情仍显示；`ListUi` 计数排除已完成项目。
+- 完成状态影响：`today / week / ungrouped` 和 `All` 过滤 `projectCompleted`；**搜索不过滤**（DONE 和已完成项目的任务都应能搜到，只有 `:ARCHIVED_AT:` 归档才彻底消失）；清单详情仍显示；`ListUi` 计数排除已完成项目。
 - `addTaskToList` 与 `moveTask` 的目的地从「仅顶层清单」放宽到「任意非任务标题」，因此可以在项目下新建、在项目之间移动；移动仍禁止进入自己的子树。
 - 验证：三层样例中 Work 详情显示「项目甲 2 open · 1 done / 项目乙 0 open · 1 done」，项目乙标记完成后写入 `** 项目乙 :PROJECT_DONE:`，其待办任务在 All 和搜索中消失，清单详情底部显示「已完成项目 / 重新打开」。

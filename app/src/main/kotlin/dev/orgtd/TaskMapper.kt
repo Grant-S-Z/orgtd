@@ -52,7 +52,8 @@ object TaskMapper {
     fun toLists(doc: OrgDocument, tasks: List<TaskUi>): List<ListUi> =
         doc.entries.filter { it.isList }.map { list ->
             val scoped = tasks.filter {
-                it.line > list.lineIndex && it.line < list.endExclusive && !it.projectCompleted
+                it.line > list.lineIndex && it.line < list.endExclusive &&
+                    !it.projectCompleted && !it.archived
             }
             ListUi(list.lineIndex, list.title, scoped.count { !it.done }, scoped.count { it.done })
         }
@@ -61,7 +62,7 @@ object TaskMapper {
         val lists = doc.entries.filter { it.isList }
         return doc.entries.filter { it.isProject }.map { project ->
             val list = nearestAncestor(lists, project.lineIndex)
-            val scoped = tasks.filter { it.projectLine == project.lineIndex }
+            val scoped = tasks.filter { it.projectLine == project.lineIndex && !it.archived }
             GroupUi(
                 line = project.lineIndex,
                 name = project.title,
