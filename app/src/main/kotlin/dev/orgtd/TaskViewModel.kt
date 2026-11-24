@@ -251,10 +251,10 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------------------------------------------------------------- 写入
 
-    fun toggle(line: Int) = mutate { doc ->
-        val entry = doc.entryAt(line) ?: error(strings.staleTask)
+    fun toggle(line: Int) = mutate(line) { doc, at ->
+        val entry = doc.entryAt(at) ?: error(strings.staleTask)
         val withId = doc.ensureId(entry)
-        val target = withId.entryAt(line) ?: error(strings.staleTask)
+        val target = withId.entryAt(at) ?: error(strings.staleTask)
 
         // 重复任务：完成即推进日期，状态保持 TODO
         if (!target.isDone) {
@@ -266,56 +266,57 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
     fun addTask(title: String, date: LocalDate?) {
         if (title.isBlank()) return
         val id = UUID.randomUUID().toString()
-        mutate { doc -> doc.appendTask(title.trim(), id, date) }
+        mutate(NO_TARGET) { doc, _ -> doc.appendTask(title.trim(), id, date) }
     }
 
     /** 在指定清单下新建任务；[listLine] 为负数表示未归类（追加到文件末尾）。 */
     fun addTaskToList(title: String, date: LocalDate?, listLine: Int) {
         if (title.isBlank()) return
         val id = UUID.randomUUID().toString()
-        mutate { doc ->
-            val list = doc.entryAt(listLine)?.takeIf { it.isList }
+        mutate(listLine) { doc, at ->
+            val list = doc.entryAt(at)?.takeIf { it.isList }
             doc.appendTask(title.trim(), id, date, list)
         }
     }
 
-    fun updateTask(line: Int, title: String, date: LocalDate?, time: LocalTime?, priority: Char?) = mutate { doc ->
-        var working = doc
-        var entry = working.entryAt(line) ?: return@mutate working
-        working = working.ensureId(entry)
-        entry = working.entryAt(line) ?: return@mutate working
+    fun updateTask(line: Int, title: String, date: LocalDate?, time: LocalTime?, priority: Char?) =
+        mutate(line) { doc, at ->
+            var working = doc
+            var entry = working.entryAt(at) ?: return@mutate working
+            working = working.ensureId(entry)
+            entry = working.entryAt(at) ?: return@mutate working
 
-        if (title.isNotBlank() && title != entry.title) {
-            working = working.rename(entry, title)
-            entry = working.entryAt(line) ?: return@mutate working
+            if (title.isNotBlank() && title != entry.title) {
+                working = working.rename(entry, title)
+                entry = working.entryAt(at) ?: return@mutate working
+            }
+
+            val existing = entry.scheduled
+            val spec = date?.let {
+                DateSpec(
+                    date = it,
+                    time = time,
+                    repeater = existing?.repeater,
+                    warning = existing?.warning,
+                    active = existing?.active ?: true,
+                )
+            }
+            if (existing?.date != date || existing?.time != time) {
+                working = working.setScheduled(entry, spec)
+                entry = working.entryAt(at) ?: return@mutate working
+            }
+
+            if (priority != entry.priority) {
+                working = working.setPriority(entry, priority)
+            }
+            working
         }
 
-        val existing = entry.scheduled
-        val spec = date?.let {
-            DateSpec(
-                date = it,
-                time = time,
-                repeater = existing?.repeater,
-                warning = existing?.warning,
-                active = existing?.active ?: true,
-            )
-        }
-        if (existing?.date != date || existing?.time != time) {
-            working = working.setScheduled(entry, spec)
-            entry = working.entryAt(line) ?: return@mutate working
-        }
-
-        if (priority != entry.priority) {
-            working = working.setPriority(entry, priority)
-        }
-        working
-    }
-
-    /** 推迟到明天：保留原有时刻与重复规则；没有计划行时补一个明天的日期。 */
-    fun postponeTask(line: Int, days: Long = 1) = mutate { doc ->
-        val entry = doc.entryAt(line) ?: error(strings.staleTask)
+    /** 推迟：保留原有时刻与重复规则；没有计划行时补一个日期。 */
+    fun postponeTask(line: Int, days: Long = 1) = mutate(line) { doc, at ->
+        val entry = doc.entryAt(at) ?: error(strings.staleTask)
         val withId = doc.ensureId(entry)
-        val target = withId.entryAt(line) ?: error(strings.staleTask)
+        val target = withId.entryAt(at) ?: error(strings.staleTask)
         val old = target.scheduled
         val spec = DateSpec(
             date = LocalDate.now().plusDays(days),
@@ -327,34 +328,34 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         withId.setScheduled(target, spec)
     }
 
-    fun deleteTask(line: Int) = mutate { doc ->
-        val entry = doc.entryAt(line) ?: error(strings.staleTask)
+    fun deleteTask(line: Int) = mutate(line) { doc, at ->
+        val entry = doc.entryAt(at) ?: error(strings.staleTask)
         undoSnapshot = doc.serialize()
         doc.delete(entry)
     }
 
     fun addList(name: String) {
         if (name.isBlank()) return
-        mutate { doc -> doc.appendList(name.trim()) }
+        mutate(NO_TARGET) { doc, _ -> doc.appendList(name.trim()) }
     }
 
     fun renameList(line: Int, name: String) {
         if (name.isBlank()) return
-        mutate { doc ->
-            val list = doc.entries.firstOrNull { it.lineIndex == line && it.isList }
+        mutate(line) { doc, at ->
+            val list = doc.entries.firstOrNull { it.lineIndex == at && it.isList }
                 ?: error(strings.staleList)
             doc.rename(list, name.trim())
         }
     }
 
-    fun deleteList(line: Int) = mutate { doc ->
-        val list = doc.entries.firstOrNull { it.lineIndex == line && it.isList }
+    fun deleteList(line: Int) = mutate(line) { doc, at ->
+        val list = doc.entries.firstOrNull { it.lineIndex == at && it.isList }
             ?: error(strings.staleList)
         doc.archiveList(list, LocalDateTime.now())
     }
 
-    fun moveList(line: Int, delta: Int) = mutate { doc ->
-        val list = doc.entries.firstOrNull { it.lineIndex == line && it.isList }
+    fun moveList(line: Int, delta: Int) = mutate(line) { doc, at ->
+        val list = doc.entries.firstOrNull { it.lineIndex == at && it.isList }
             ?: error(strings.staleList)
         doc.moveList(list, delta)
     }
@@ -388,20 +389,45 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun mutate(block: (OrgDocument) -> OrgDocument) {
+    /**
+     * 写入的统一入口。
+     *
+     * 同步策略：**不做 diff，本地改动直接叠加到最新的远端内容上写回**。
+     * 如果目标条目有 `:ID:`，会按 ID 在最新文档里重新定位，尽量保留两端各自的修改；
+     * 读和写之间远端又被改（412）时，重读一次再叠加。
+     */
+    private fun mutate(lineHint: Int, block: (OrgDocument, Int) -> OrgDocument) {
         val src = source ?: return
         _state.update { it.copy(error = null) }
 
         viewModelScope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
-                    val snapshot = src.read() ?: error(strings.fileMissing)
-                    if (lastText != null && snapshot.text != lastText) {
-                        error(strings.conflictReload)
+                    val targetId = lastText
+                        ?.let { runCatching { OrgDocument.parse(it) }.getOrNull() }
+                        ?.let { doc ->
+                            if (lineHint == NO_TARGET) null else doc.entryAt(lineHint)?.id
+                        }
+
+                    fun applyTo(snapshot: dev.orgtd.data.Snapshot): OrgDocument {
+                        val doc = OrgDocument.parse(snapshot.text)
+                        val at = targetId?.let { doc.entryById(it)?.lineIndex } ?: lineHint
+                        return block(doc, at)
                     }
-                    val next = block(OrgDocument.parse(snapshot.text))
-                    val text = next.serialize()
-                    if (text != snapshot.text) src.write(text, snapshot, snapshot.text)
+
+                    var snapshot = src.read() ?: error(strings.fileMissing)
+                    var next = applyTo(snapshot)
+                    var text = next.serialize()
+                    if (text != snapshot.text) {
+                        try {
+                            src.write(text, snapshot, snapshot.text)
+                        } catch (conflict: ConflictException) {
+                            snapshot = src.read() ?: error(strings.fileMissing)
+                            next = applyTo(snapshot)
+                            text = next.serialize()
+                            if (text != snapshot.text) src.write(text, snapshot, snapshot.text)
+                        }
+                    }
                     next
                 }
             }
@@ -464,3 +490,5 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 }
+
+private const val NO_TARGET = Int.MIN_VALUE

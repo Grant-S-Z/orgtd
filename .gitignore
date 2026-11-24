@@ -19,3 +19,6 @@ keystore.properties
 
 # 本机会话工具
 .agent-shell/
+
+# 本地发布产物
+dist/

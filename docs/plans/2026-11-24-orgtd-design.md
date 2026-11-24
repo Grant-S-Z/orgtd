@@ -447,3 +447,25 @@ material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案�
 - **通知时间格式**：通知正文原来是 ISO 串 `2026-11-24T02:42`，现在按语言显示 `11月24日 02:42` / `Nov 24, 02:42`。
 - **安全修补**：`BootReceiver` 原来不校验 action，理论上可被同设备应用伪造广播触发重排；现在只接受 BOOT_COMPLETED / TIME_SET / TIMEZONE_CHANGED / MY_PACKAGE_REPLACED 四种系统 action。
 - **Lint 清理**：21 条告警（0 错误）降到 4 条「有新版本可用」的信息性提示；期间发现并修复「全部」页没有走滑动包装的缺陷。
+
+## 28. 同步策略调整与发布准备（2026-11-24）
+
+**写入策略**：按要求取消「文件已被修改 → 中止并提示」的做法，改为**本地改动叠加到最新远端内容后直接写回**：
+
+1. 每次写入先重新读取远端（拿到最新内容与 ETag）；
+2. 如果目标条目有 `:ID:`，在最新文档里按 ID 重新定位行号，避免外部插入/删除导致改错条目；
+3. 在最新文档上执行这次改动，再写回；远端新增的条目会保留；
+4. 读和写之间远端又被改（`If-Match` 412）时，重读一次再叠加。
+
+不做 diff 合并界面：同一任务两端同时修改时，后写的一方生效。
+
+**后台同步**：`OrgtdApplication` 启动时注册 WorkManager 周期任务（15 分钟，网络可用时），`SyncWorker` 只读不写——拉取远端内容刷新缓存，并重排闹钟。
+
+**发布准备**（见 RELEASING.md / CHANGELOG.md）：
+
+- `versionName 0.1.0`、`versionCode 1`；release 开启 R8 + 资源压缩，APK 9.4 MB → 1.8 MB；
+- 发布签名接到 `keystore.properties`，密钥已备份到 `~/orgtd-release-keys/`；
+- 新增 GitHub Release workflow（tag `v*` 触发，需要配置 4 个 Secrets）；
+- 测试 fixture 已脱敏。
+
+验证：在手机上模拟「外部新增一个任务，然后 App 里勾掉另一个任务」，结果外部任务保留、目标任务正确推进，且无崩溃。
