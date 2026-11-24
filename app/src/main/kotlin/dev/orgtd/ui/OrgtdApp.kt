@@ -77,6 +77,7 @@ import dev.orgtd.UiStyle
 import dev.orgtd.matches
 import dev.orgtd.UiState
 import java.time.LocalDate
+import java.time.LocalTime
 import kotlinx.coroutines.launch
 
 private const val NO_DETAIL = Int.MIN_VALUE
@@ -118,7 +119,8 @@ fun OrgtdApp(
     onToggle: (Int) -> Unit,
     onAddTask: (String, LocalDate?) -> Unit,
     onAddTaskToList: (String, LocalDate?, Int) -> Unit,
-    onUpdateTask: (Int, String, LocalDate?, Char?) -> Unit,
+    onUpdateTask: (Int, String, LocalDate?, LocalTime?, Char?) -> Unit,
+    onPostponeTask: (Int) -> Unit,
     onDeleteTask: (Int) -> Unit,
     onUndoDelete: () -> Unit,
     onAddList: (String) -> Unit,
@@ -380,11 +382,15 @@ fun OrgtdApp(
         TaskSheet(
             task = editing,
             onDismiss = { editingLine = -1 },
-            onSave = { title, date, priority ->
-                onUpdateTask(editing.line, title, date, priority)
+            onSave = { title, date, time, priority ->
+                onUpdateTask(editing.line, title, date, time, priority)
                 editingLine = -1
             },
             onDelete = { confirmDelete(editing.line) },
+            onPostpone = {
+                onPostponeTask(editing.line)
+                editingLine = -1
+            },
         )
     }
 }

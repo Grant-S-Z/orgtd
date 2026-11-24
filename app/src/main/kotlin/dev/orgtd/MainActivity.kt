@@ -123,6 +123,7 @@ class MainActivity : ComponentActivity() {
                     onAddTask = viewModel::addTask,
                     onAddTaskToList = viewModel::addTaskToList,
                     onUpdateTask = viewModel::updateTask,
+                    onPostponeTask = viewModel::postponeTask,
                     onDeleteTask = viewModel::deleteTask,
                     onUndoDelete = viewModel::undoDelete,
                     onAddList = viewModel::addList,

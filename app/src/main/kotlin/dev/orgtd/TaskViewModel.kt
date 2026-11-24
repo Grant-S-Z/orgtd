@@ -255,7 +255,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun updateTask(line: Int, title: String, date: LocalDate?, priority: Char?) = mutate { doc ->
+    fun updateTask(line: Int, title: String, date: LocalDate?, time: LocalTime?, priority: Char?) = mutate { doc ->
         var working = doc
         var entry = working.entryAt(line) ?: return@mutate working
         working = working.ensureId(entry)
@@ -270,13 +270,13 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         val spec = date?.let {
             DateSpec(
                 date = it,
-                time = existing?.time,
+                time = time,
                 repeater = existing?.repeater,
                 warning = existing?.warning,
                 active = existing?.active ?: true,
             )
         }
-        if (existing?.date != date) {
+        if (existing?.date != date || existing?.time != time) {
             working = working.setScheduled(entry, spec)
             entry = working.entryAt(line) ?: return@mutate working
         }
@@ -285,6 +285,22 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
             working = working.setPriority(entry, priority)
         }
         working
+    }
+
+    /** 推迟到明天：保留原有时刻与重复规则；没有计划行时补一个明天的日期。 */
+    fun postponeTask(line: Int) = mutate { doc ->
+        val entry = doc.entryAt(line) ?: error(strings.staleTask)
+        val withId = doc.ensureId(entry)
+        val target = withId.entryAt(line) ?: error(strings.staleTask)
+        val old = target.scheduled
+        val spec = DateSpec(
+            date = LocalDate.now().plusDays(1),
+            time = old?.time,
+            repeater = old?.repeater,
+            warning = old?.warning,
+            active = old?.active ?: true,
+        )
+        withId.setScheduled(target, spec)
     }
 
     fun deleteTask(line: Int) = mutate { doc ->

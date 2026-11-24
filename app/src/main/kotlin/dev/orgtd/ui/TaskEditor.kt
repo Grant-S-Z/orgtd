@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -29,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.orgtd.TaskUi
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun AddTaskDialog(
@@ -82,8 +86,9 @@ fun AddTaskDialog(
 fun TaskSheet(
     task: TaskUi,
     onDismiss: () -> Unit,
-    onSave: (String, LocalDate?, Char?) -> Unit,
+    onSave: (String, LocalDate?, LocalTime?, Char?) -> Unit,
     onDelete: () -> Unit,
+    onPostpone: () -> Unit,
 ) {
     val strings = LocalStrings.current
     val sheetState = rememberBottomSheetState(
@@ -93,6 +98,8 @@ fun TaskSheet(
     var title by rememberSaveable(task.line) { mutableStateOf(task.title) }
     var date by rememberSaveable(task.line) { mutableStateOf(task.date?.toString()) }
     var priority by rememberSaveable(task.line) { mutableStateOf(task.priority?.toString() ?: "") }
+    var time by rememberSaveable(task.line) { mutableStateOf(task.time?.toString()) }
+    var showTimePicker by rememberSaveable { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -125,6 +132,26 @@ fun TaskSheet(
                 }
             }
 
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(strings.timeLabel, style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = time ?: strings.timeNotSet,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (time == null) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { showTimePicker = true }) { Text(strings.setTime) }
+                if (time != null) {
+                    TextButton(onClick = { time = null }) { Text(strings.clearTime) }
+                }
+            }
+
             Spacer(Modifier.height(20.dp))
             Text(strings.priorityLabel, style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
@@ -142,7 +169,11 @@ fun TaskSheet(
                 }
             }
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(20.dp))
+            TextButton(onClick = onPostpone, modifier = Modifier.fillMaxWidth()) {
+                Text(strings.postpone)
+            }
+
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 TextButton(onClick = onDelete) {
                     Text(strings.delete, color = MaterialTheme.colorScheme.error)
@@ -155,12 +186,40 @@ fun TaskSheet(
                         onSave(
                             title.trim().ifBlank { task.title },
                             date?.let { LocalDate.parse(it) },
+                            time?.let { LocalTime.parse(it) },
                             priority.firstOrNull(),
                         )
                     },
                 ) { Text(strings.save) }
             }
         }
+    }
+
+    if (showTimePicker) {
+        val initial = time?.let { LocalTime.parse(it) }
+        val pickerState = rememberTimePickerState(
+            initialHour = initial?.hour ?: 9,
+            initialMinute = initial?.minute ?: 0,
+            is24Hour = true,
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    time = String.format(
+                        java.util.Locale.US,
+                        "%02d:%02d",
+                        pickerState.hour,
+                        pickerState.minute,
+                    )
+                    showTimePicker = false
+                }) { Text(strings.confirm) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text(strings.cancel) }
+            },
+            text = { TimePicker(state = pickerState) },
+        )
     }
 }
 
