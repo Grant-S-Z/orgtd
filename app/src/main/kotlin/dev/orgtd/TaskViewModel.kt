@@ -83,16 +83,20 @@ data class UiState(
     val sourceLabel: String = "",
     val offline: Boolean = false,
 ) {
+    /** 先按日期，再按时刻；没有时刻的排在当天最后。 */
+    private val BY_DATE_THEN_TIME: Comparator<TaskUi> = compareBy<TaskUi> { it.date ?: LocalDate.MAX }
+        .thenBy { it.time ?: LocalTime.MAX }
+
     val today: List<TaskUi>
         get() = tasks.filter { !it.done && it.date != null && !it.date.isAfter(LocalDate.now()) }
-            .sortedBy { it.date }
+            .sortedWith(BY_DATE_THEN_TIME)
 
     val week: List<TaskUi>
         get() {
             val today = LocalDate.now()
             return tasks.filter {
                 !it.done && it.date != null && it.date.isAfter(today) && !it.date.isAfter(today.plusDays(7))
-            }.sortedBy { it.date }
+            }.sortedWith(BY_DATE_THEN_TIME)
         }
 
     val ungrouped: List<TaskUi> get() = tasks.filter { it.listName == null }

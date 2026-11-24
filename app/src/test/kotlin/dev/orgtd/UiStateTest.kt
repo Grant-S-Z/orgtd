@@ -1,6 +1,8 @@
 package dev.orgtd
 
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,6 +25,34 @@ class UiStateTest {
         listName = null,
         closed = closed,
     )
+
+    private fun timed(line: Int, date: LocalDate?, time: LocalTime?) = TaskUi(
+        line = line,
+        title = "task-$line",
+        done = false,
+        date = date,
+        time = time,
+        repeater = null,
+        priority = null,
+        tags = emptyList(),
+        listName = null,
+    )
+
+    @Test
+    fun `今天按日期和时刻排序，无时刻排最后`() {
+        val today = LocalDate.now()
+        val state = UiState(
+            tasks = listOf(
+                timed(1, today, null),
+                timed(2, today, LocalTime.of(16, 30)),
+                timed(3, today.minusDays(1), LocalTime.of(9, 0)),
+                timed(4, today.plusDays(1), null),
+                timed(5, today, LocalTime.of(0, 0)),
+            ),
+        )
+
+        assertEquals(listOf(3, 5, 2, 1), state.today.map { it.line })
+    }
 
     @Test
     fun `没有已完成任务时为空`() {
