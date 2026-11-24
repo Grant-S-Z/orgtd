@@ -9,9 +9,7 @@
 
 > 状态：M0–M8 全部完成——读取、写回、编辑、重复任务、清单管理、精确提醒都已实现。设计文档见 [docs/plans/2026-11-24-orgtd-design.md](docs/plans/2026-11-24-orgtd-design.md)。
 
-| 海盐蓝（默认） | 林间绿 | 琥珀暖沙 |
-|---|---|---|
-| ![海盐蓝](docs/images/theme-ocean-light.png) | ![林间绿](docs/images/screenshot-today.png) | ![琥珀暖沙](docs/images/theme-amber-light.png) |
+![Apple 风格](docs/images/ios-style.png)
 
 ## 它解决什么
 
@@ -81,7 +79,9 @@ Apple 风格用的是 iOS 系统色：页面底 `#F2F2F7`、卡片纯白、分�
 
 配色只手工定角色色（primary / secondary / tertiary 及容器、surface、outline），error 系列沿用 Material 3 基线，避免每套主题都要单独核对对比度。
 
-![深色模式](docs/images/theme-ocean-dark.png)
+深色模式跟随「外观」设置：跟随系统 / 浅色 / 深色。
+
+![中文界面](docs/images/language-zh.png)
 
 ## 关键约定
 
