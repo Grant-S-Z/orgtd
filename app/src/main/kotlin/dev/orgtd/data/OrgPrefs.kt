@@ -1,6 +1,7 @@
 package dev.orgtd.data
 
 import android.content.Context
+import androidx.core.content.edit
 import dev.orgtd.Language
 import dev.orgtd.UiStyle
 
@@ -15,42 +16,42 @@ class OrgPrefs(context: Context) {
 
     var mode: StorageMode
         get() = StorageMode.entries.firstOrNull { it.name == prefs.getString(KEY_MODE, null) } ?: StorageMode.LOCAL
-        set(value) = prefs.edit().putString(KEY_MODE, value.name).apply()
+        set(value) = prefs.edit { putString(KEY_MODE, value.name) }
 
     var treeUri: String?
         get() = prefs.getString(KEY_TREE_URI, null)
-        set(value) = prefs.edit().putString(KEY_TREE_URI, value).apply()
+        set(value) = prefs.edit { putString(KEY_TREE_URI, value) }
 
     var fileName: String
         get() = prefs.getString(KEY_FILE_NAME, DEFAULT_FILE) ?: DEFAULT_FILE
-        set(value) = prefs.edit().putString(KEY_FILE_NAME, value).apply()
+        set(value) = prefs.edit { putString(KEY_FILE_NAME, value) }
 
     var webDavUrl: String
         get() = prefs.getString(KEY_DAV_URL, DEFAULT_DAV_URL) ?: DEFAULT_DAV_URL
-        set(value) = prefs.edit().putString(KEY_DAV_URL, value).apply()
+        set(value) = prefs.edit { putString(KEY_DAV_URL, value) }
 
     var webDavUser: String
         get() = prefs.getString(KEY_DAV_USER, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_DAV_USER, value).apply()
+        set(value) = prefs.edit { putString(KEY_DAV_USER, value) }
 
     var themeId: String
         get() = prefs.getString(KEY_THEME, DEFAULT_THEME) ?: DEFAULT_THEME
-        set(value) = prefs.edit().putString(KEY_THEME, value).apply()
+        set(value) = prefs.edit { putString(KEY_THEME, value) }
 
     var uiStyle: UiStyle
         get() = UiStyle.entries.firstOrNull { it.name == prefs.getString(KEY_UI_STYLE, null) }
             ?: UiStyle.APPLE
-        set(value) = prefs.edit().putString(KEY_UI_STYLE, value.name).apply()
+        set(value) = prefs.edit { putString(KEY_UI_STYLE, value.name) }
 
     var language: Language
         get() = Language.entries.firstOrNull { it.name == prefs.getString(KEY_LANGUAGE, null) }
             ?: Language.SYSTEM
-        set(value) = prefs.edit().putString(KEY_LANGUAGE, value.name).apply()
+        set(value) = prefs.edit { putString(KEY_LANGUAGE, value.name) }
 
     var darkMode: DarkMode
         get() = DarkMode.entries.firstOrNull { it.name == prefs.getString(KEY_DARK_MODE, null) }
             ?: DarkMode.SYSTEM
-        set(value) = prefs.edit().putString(KEY_DARK_MODE, value.name).apply()
+        set(value) = prefs.edit { putString(KEY_DARK_MODE, value.name) }
 
     companion object {
         const val DEFAULT_FILE = "gtd.org"

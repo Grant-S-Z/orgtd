@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import androidx.core.content.edit
 import dev.orgtd.TaskUi
 import java.time.ZoneId
 
@@ -44,7 +45,7 @@ object ReminderScheduler {
             scheduled += code.toString()
         }
 
-        prefs.edit().putStringSet(KEY_CODES, scheduled).apply()
+        prefs.edit { putStringSet(KEY_CODES, scheduled) }
     }
 
     fun code(task: TaskUi): Int = "${task.title}|${task.reminderAt}".hashCode()

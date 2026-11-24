@@ -47,6 +47,9 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -54,6 +57,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -120,7 +124,7 @@ fun OrgtdApp(
     onAddTask: (String, LocalDate?) -> Unit,
     onAddTaskToList: (String, LocalDate?, Int) -> Unit,
     onUpdateTask: (Int, String, LocalDate?, LocalTime?, Char?) -> Unit,
-    onPostponeTask: (Int) -> Unit,
+    onPostponeTask: (Int, Long) -> Unit,
     onDeleteTask: (Int) -> Unit,
     onUndoDelete: () -> Unit,
     onAddList: (String) -> Unit,
@@ -266,6 +270,7 @@ fun OrgtdApp(
                     name = detailName,
                     onToggle = onToggle,
                     onOpen = { editingLine = it },
+                    onPostpone = { onPostponeTask(it, 1) },
                 )
 
                 tab == Tab.Today -> TodayTab(
@@ -274,12 +279,14 @@ fun OrgtdApp(
                     onRangeChange = { rangeIndex = it },
                     onToggle = onToggle,
                     onOpen = { editingLine = it },
+                    onPostpone = { onPostponeTask(it, 1) },
                 )
 
                 tab == Tab.Inbox -> InboxTab(
                     state = state,
                     onToggle = onToggle,
                     onOpen = { editingLine = it },
+                    onPostpone = { onPostponeTask(it, 1) },
                 )
 
                 tab == Tab.Lists -> ListsTab(
@@ -296,6 +303,7 @@ fun OrgtdApp(
                     state = state,
                     onToggle = onToggle,
                     onOpen = { editingLine = it },
+                    onPostpone = { onPostponeTask(it, 1) },
                 )
             }
         }
@@ -387,8 +395,8 @@ fun OrgtdApp(
                 editingLine = -1
             },
             onDelete = { confirmDelete(editing.line) },
-            onPostpone = {
-                onPostponeTask(editing.line)
+            onPostpone = { days ->
+                onPostponeTask(editing.line, days)
                 editingLine = -1
             },
         )
@@ -404,15 +412,16 @@ private fun TodayTab(
     onRangeChange: (Int) -> Unit,
     onToggle: (Int) -> Unit,
     onOpen: (Int) -> Unit,
+    onPostpone: (Int) -> Unit,
 ) {
     val strings = LocalStrings.current
     val today = LocalDate.now()
     RangeSelector(rangeIndex, onRangeChange)
 
     when (Range.entries[rangeIndex]) {
-        Range.Today -> TaskList(state.today, today, onToggle, onOpen, strings.noTasksToday)
-        Range.Week -> TaskList(state.week, today, onToggle, onOpen, strings.noTasksWeek)
-        Range.Completed -> TaskList(state.completed, today, onToggle, onOpen, strings.noCompleted)
+        Range.Today -> TaskList(state.today, today, onToggle, onOpen, onPostpone, strings.noTasksToday)
+        Range.Week -> TaskList(state.week, today, onToggle, onOpen, onPostpone, strings.noTasksWeek)
+        Range.Completed -> TaskList(state.completed, today, onToggle, onOpen, onPostpone, strings.noCompleted)
         Range.All -> {
             val groups = state.tasks.filter { !it.done }.groupBy { it.listName ?: strings.ungrouped }
             if (groups.isEmpty()) {
@@ -422,7 +431,7 @@ private fun TodayTab(
                     groups.forEach { (name, tasks) ->
                         item(key = "header-$name") { SectionHeader(name) }
                         items(tasks, key = { it.line }) { task ->
-                            TaskRow(task, today, onToggle, onOpen)
+                            SwipeableTaskRow(task, today, onToggle, onOpen, onPostpone)
                         }
                     }
                 }
@@ -438,6 +447,7 @@ private fun ListTasks(
     name: String?,
     onToggle: (Int) -> Unit,
     onOpen: (Int) -> Unit,
+    onPostpone: (Int) -> Unit,
 ) {
     val strings = LocalStrings.current
     if (name == null) {
@@ -456,15 +466,20 @@ private fun ListTasks(
 
     LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
         items(tasks, key = { it.line }) { task ->
-            TaskRow(task, LocalDate.now(), onToggle, onOpen)
+            SwipeableTaskRow(task, LocalDate.now(), onToggle, onOpen, onPostpone)
         }
     }
 }
 
 @Composable
-private fun InboxTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> Unit) {
+private fun InboxTab(
+    state: UiState,
+    onToggle: (Int) -> Unit,
+    onOpen: (Int) -> Unit,
+    onPostpone: (Int) -> Unit,
+) {
     val strings = LocalStrings.current
-    TaskList(state.ungrouped.filter { !it.done }, LocalDate.now(), onToggle, onOpen, strings.inboxEmpty)
+    TaskList(state.ungrouped.filter { !it.done }, LocalDate.now(), onToggle, onOpen, onPostpone, strings.inboxEmpty)
 }
 
 private class ListRowModel(
@@ -545,7 +560,12 @@ private fun ListsTab(
 
 
 @Composable
-private fun SearchTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> Unit) {
+private fun SearchTab(
+    state: UiState,
+    onToggle: (Int) -> Unit,
+    onOpen: (Int) -> Unit,
+    onPostpone: (Int) -> Unit,
+) {
     val strings = LocalStrings.current
     var query by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
@@ -562,7 +582,7 @@ private fun SearchTab(state: UiState, onToggle: (Int) -> Unit, onOpen: (Int) -> 
             EmptyHint(strings.searchPrompt)
         } else {
             val hits = state.tasks.filter { it.matches(query) }
-            TaskList(hits, LocalDate.now(), onToggle, onOpen, strings.noMatches)
+            TaskList(hits, LocalDate.now(), onToggle, onOpen, onPostpone, strings.noMatches)
         }
     }
 }
@@ -602,6 +622,7 @@ private fun TaskList(
     today: LocalDate,
     onToggle: (Int) -> Unit,
     onOpen: (Int) -> Unit,
+    onPostpone: (Int) -> Unit,
     emptyText: String,
 ) {
     val strings = LocalStrings.current
@@ -615,7 +636,7 @@ private fun TaskList(
             item {
                 IosGroup {
                     tasks.forEachIndexed { index, task ->
-                        TaskRow(task, today, onToggle, onOpen)
+                        SwipeableTaskRow(task, today, onToggle, onOpen, onPostpone)
                         if (index != tasks.lastIndex) IosDivider()
                     }
                 }
@@ -625,7 +646,69 @@ private fun TaskList(
     }
 
     LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-        items(tasks, key = { it.line }) { task -> TaskRow(task, today, onToggle, onOpen) }
+        items(tasks, key = { it.line }) { task ->
+            SwipeableTaskRow(task, today, onToggle, onOpen, onPostpone)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeableTaskRow(
+    task: TaskUi,
+    today: LocalDate,
+    onToggle: (Int) -> Unit,
+    onOpen: (Int) -> Unit,
+    onPostpone: (Int) -> Unit,
+) {
+    val strings = LocalStrings.current
+    val dismissState = rememberSwipeToDismissBoxState()
+
+    // 滑动到位后执行动作，再把行弹回原位（确认逻辑不再用已废弃的 confirmValueChange）
+    LaunchedEffect(dismissState.currentValue) {
+        when (dismissState.currentValue) {
+            SwipeToDismissBoxValue.EndToStart -> {
+                onToggle(task.line)
+                dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+            }
+
+            SwipeToDismissBoxValue.StartToEnd -> {
+                if (!task.done) onPostpone(task.line)
+                dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+            }
+
+            SwipeToDismissBoxValue.Settled -> Unit
+        }
+    }
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = !task.done,
+        enableDismissFromEndToStart = true,
+        backgroundContent = { SwipeActionBackground(dismissState.dismissDirection, strings) },
+    ) {
+        TaskRow(task, today, onToggle, onOpen)
+    }
+}
+
+@Composable
+private fun SwipeActionBackground(direction: SwipeToDismissBoxValue, strings: AppStrings) {
+    if (direction == SwipeToDismissBoxValue.Settled) return
+
+    val complete = direction == SwipeToDismissBoxValue.EndToStart
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(if (complete) Color(0xFF34C759) else Color(0xFFFF9F0A))
+            .padding(horizontal = 20.dp),
+        horizontalArrangement = if (complete) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = if (complete) strings.swipeComplete else strings.swipePostpone,
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+        )
     }
 }
 
@@ -707,8 +790,14 @@ private fun TaskRow(
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 }
 
+private fun formatTime(time: java.time.LocalTime): String =
+    String.format(java.util.Locale.US, "%02d:%02d", time.hour, time.minute)
+
 private fun taskMeta(task: TaskUi, today: LocalDate, strings: AppStrings): List<String> = buildList {
-    if (!task.done) task.date?.let { add(strings.formatDate(it, today)) }
+    if (!task.done) task.date?.let { date ->
+        val day = strings.formatDate(date, today)
+        add(if (task.time != null) "$day ${formatTime(task.time)}" else day)
+    }
     task.closed?.let { add(strings.completedOn(strings.formatDate(it.toLocalDate(), today))) }
     task.repeater?.let { add(strings.repeats(it)) }
     if (task.children > 0) add(strings.subtasks(task.children))

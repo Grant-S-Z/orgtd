@@ -288,13 +288,13 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** 推迟到明天：保留原有时刻与重复规则；没有计划行时补一个明天的日期。 */
-    fun postponeTask(line: Int) = mutate { doc ->
+    fun postponeTask(line: Int, days: Long = 1) = mutate { doc ->
         val entry = doc.entryAt(line) ?: error(strings.staleTask)
         val withId = doc.ensureId(entry)
         val target = withId.entryAt(line) ?: error(strings.staleTask)
         val old = target.scheduled
         val spec = DateSpec(
-            date = LocalDate.now().plusDays(1),
+            date = LocalDate.now().plusDays(days),
             time = old?.time,
             repeater = old?.repeater,
             warning = old?.warning,

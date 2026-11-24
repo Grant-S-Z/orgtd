@@ -57,6 +57,10 @@ class AppStrings(private val en: Boolean) {
     val setTime = s("设置时间", "Set time")
     val clearTime = s("清除时间", "Clear time")
     val postpone = s("推迟到明天", "Postpone to tomorrow")
+    val postponeIn3Days = s("推迟 3 天", "Postpone 3 days")
+    val postponeInWeek = s("推迟一周", "Postpone a week")
+    val swipeComplete = s("完成", "Complete")
+    val swipePostpone = s("推迟", "Postpone")
     val priorityNone = s("无", "None")
     val priorityHigh = s("高", "High")
     val priorityMedium = s("中", "Medium")
@@ -168,6 +172,9 @@ class AppStrings(private val en: Boolean) {
     val actionPostpone = s("推迟到明天", "Postpone to tomorrow")
     val reminderFallback = s("该做了", "Time to do this")
 
+    fun formatReminderTime(dateTime: java.time.LocalDateTime): String =
+        dateTime.format(if (en) REMINDER_EN else REMINDER_ZH)
+
     fun formatDate(date: LocalDate, today: LocalDate): String = when {
         date == today -> dateToday
         date == today.plusDays(1) -> dateTomorrow
@@ -181,6 +188,8 @@ class AppStrings(private val en: Boolean) {
         val MONTH_DAY_EN: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
         val YEAR_MONTH_DAY_ZH: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy年M月d日", Locale.CHINA)
         val YEAR_MONTH_DAY_EN: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH)
+        val REMINDER_ZH: DateTimeFormatter = DateTimeFormatter.ofPattern("M月d日 HH:mm", Locale.CHINA)
+        val REMINDER_EN: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.ENGLISH)
     }
 }
 

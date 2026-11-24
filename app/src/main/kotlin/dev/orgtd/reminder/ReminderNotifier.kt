@@ -14,13 +14,13 @@ import dev.orgtd.MainActivity
 import dev.orgtd.R
 import dev.orgtd.Strings
 import dev.orgtd.data.OrgPrefs
+import java.time.LocalDateTime
 
 object ReminderNotifier {
 
     private const val CHANNEL_ID = "reminders"
 
     fun ensureChannel(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
 
         val strings = Strings.resolve(OrgPrefs(context).language)
@@ -45,10 +45,13 @@ object ReminderNotifier {
         )
 
         val strings = Strings.resolve(OrgPrefs(context).language)
+        val readableTime = time?.let { raw ->
+            runCatching { LocalDateTime.parse(raw) }.getOrNull()?.let(strings::formatReminderTime) ?: raw
+        }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
-            .setContentText(time ?: strings.reminderFallback)
+            .setContentText(readableTime ?: strings.reminderFallback)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)

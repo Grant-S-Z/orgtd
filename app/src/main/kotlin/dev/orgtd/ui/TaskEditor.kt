@@ -8,7 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Button
@@ -88,7 +91,7 @@ fun TaskSheet(
     onDismiss: () -> Unit,
     onSave: (String, LocalDate?, LocalTime?, Char?) -> Unit,
     onDelete: () -> Unit,
-    onPostpone: () -> Unit,
+    onPostpone: (Long) -> Unit,
 ) {
     val strings = LocalStrings.current
     val sheetState = rememberBottomSheetState(
@@ -170,8 +173,26 @@ fun TaskSheet(
             }
 
             Spacer(Modifier.height(20.dp))
-            TextButton(onClick = onPostpone, modifier = Modifier.fillMaxWidth()) {
-                Text(strings.postpone)
+            Box(Modifier.fillMaxWidth()) {
+                var postponeMenu by rememberSaveable { mutableStateOf(false) }
+                TextButton(
+                    onClick = { postponeMenu = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(strings.postpone) }
+                DropdownMenu(expanded = postponeMenu, onDismissRequest = { postponeMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(strings.postpone) },
+                        onClick = { postponeMenu = false; onPostpone(1) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(strings.postponeIn3Days) },
+                        onClick = { postponeMenu = false; onPostpone(3) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(strings.postponeInWeek) },
+                        onClick = { postponeMenu = false; onPostpone(7) },
+                    )
+                }
             }
 
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {

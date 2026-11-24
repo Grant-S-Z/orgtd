@@ -2,6 +2,7 @@ package dev.orgtd.data
 
 import android.content.Context
 import android.net.Uri
+import androidx.core.net.toUri
 import java.io.File
 import java.io.IOException
 
@@ -135,7 +136,7 @@ object Sources {
         val prefs = OrgPrefs(context)
         return when (prefs.mode) {
             StorageMode.LOCAL -> prefs.treeUri
-                ?.let { runCatching { Uri.parse(it) }.getOrNull() }
+                ?.let { runCatching { it.toUri() }.getOrNull() }
                 ?.let { LocalSource(context, it, prefs.fileName) }
 
             StorageMode.WEBDAV -> {

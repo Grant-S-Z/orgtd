@@ -438,3 +438,12 @@ material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案�
 - 把「更新 15906…」设为 09:00 → 文件写入 `SCHEDULED: <2026-11-22 Sun 09:00>`。
 - 再点「推迟到明天」→ 变为 `SCHEDULED: <2026-11-25 Wed 09:00>`，时刻保留。
 - `dumpsys alarm` 显示精确闹钟登记在 `2026-11-25 09:00:00`，`window=0 exactAllowReason=permission`。
+
+## 27. 滑动操作、推迟档位与列表时间（2026-11-24）
+
+- **滑动**：任务行包了 `SwipeToDismissBox`——左滑完成、右滑推迟一天，动作执行后自动回弹；完成态的行禁止右滑，但仍可左滑撤销完成。用 `LaunchedEffect(currentValue)` + `snapTo(Settled)` 实现，避开已废弃的 `confirmValueChange`。
+- **推迟档位**：详情面板的推迟按钮改成菜单：明天 / 3 天后 / 一周后，保留原时刻与重复规则。滑动手势仍是「+1 天」的快捷方式。
+- **列表显示时间**：任务行在有 `HH:mm` 时显示「日期 时刻」（如 `Tomorrow 09:00`），之前只显示日期。
+- **通知时间格式**：通知正文原来是 ISO 串 `2026-11-24T02:42`，现在按语言显示 `11月24日 02:42` / `Nov 24, 02:42`。
+- **安全修补**：`BootReceiver` 原来不校验 action，理论上可被同设备应用伪造广播触发重排；现在只接受 BOOT_COMPLETED / TIME_SET / TIMEZONE_CHANGED / MY_PACKAGE_REPLACED 四种系统 action。
+- **Lint 清理**：21 条告警（0 错误）降到 4 条「有新版本可用」的信息性提示；期间发现并修复「全部」页没有走滑动包装的缺陷。

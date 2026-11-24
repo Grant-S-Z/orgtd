@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import androidx.core.content.edit
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -39,7 +40,7 @@ object SecureStore {
 
     fun setPassword(context: Context, value: String) {
         val encoded = if (value.isEmpty()) "" else encrypt(value)
-        prefs(context).edit().putString(KEY_PASSWORD, encoded).apply()
+        prefs(context).edit { putString(KEY_PASSWORD, encoded) }
     }
 
     private fun prefs(context: Context): SharedPreferences =

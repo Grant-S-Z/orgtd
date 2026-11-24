@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.AlarmManager
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -112,7 +113,7 @@ class MainActivity : ComponentActivity() {
                             runCatching {
                                 startActivity(
                                     Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                                        .setData(Uri.parse("package:$packageName")),
+                                        .setData("package:$packageName".toUri()),
                                 )
                             }
                         }
