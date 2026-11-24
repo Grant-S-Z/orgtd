@@ -5,6 +5,8 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 ![minSdk](https://img.shields.io/badge/Android-8.0%2B-green)
 
+**中文** · [English](README.en.md)
+
 把 org 文件当数据源的 Android GTD 客户端。在 Emacs 里管 `~/org`，在手机上用滴答清单式的界面看今天、勾任务、临时加一条——写回去的还是同一个纯文本 `.org` 文件。
 
 ![界面](docs/images/ios-style.png)
