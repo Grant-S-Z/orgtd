@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -92,6 +95,8 @@ fun TaskSheet(
     onSave: (String, LocalDate?, LocalTime?, Char?) -> Unit,
     onDelete: () -> Unit,
     onPostpone: (Long) -> Unit,
+    onArchive: () -> Unit,
+    onUnarchive: () -> Unit,
 ) {
     val strings = LocalStrings.current
     val sheetState = rememberBottomSheetState(
@@ -117,6 +122,21 @@ fun TaskSheet(
                 label = { Text(strings.titleLabel) },
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            if (task.body.isNotBlank()) {
+                Spacer(Modifier.height(16.dp))
+                Text(strings.notesLabel, style = MaterialTheme.typography.labelLarge)
+                Text(
+                    text = task.body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 220.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(top = 6.dp),
+                )
+            }
 
             Spacer(Modifier.height(20.dp))
             Text(strings.dateLabel, style = MaterialTheme.typography.labelLarge)
@@ -172,7 +192,15 @@ fun TaskSheet(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            if (task.done) {
+                Spacer(Modifier.height(12.dp))
+                TextButton(
+                    onClick = { if (task.archived) onUnarchive() else onArchive() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(if (task.archived) strings.unarchive else strings.archive) }
+            }
+
+            Spacer(Modifier.height(12.dp))
             Box(Modifier.fillMaxWidth()) {
                 var postponeMenu by rememberSaveable { mutableStateOf(false) }
                 TextButton(

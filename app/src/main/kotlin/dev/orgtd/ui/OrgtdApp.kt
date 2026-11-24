@@ -125,6 +125,8 @@ fun OrgtdApp(
     onAddTaskToList: (String, LocalDate?, Int) -> Unit,
     onUpdateTask: (Int, String, LocalDate?, LocalTime?, Char?) -> Unit,
     onPostponeTask: (Int, Long) -> Unit,
+    onArchiveTask: (Int) -> Unit,
+    onUnarchiveTask: (Int) -> Unit,
     onDeleteTask: (Int) -> Unit,
     onUndoDelete: () -> Unit,
     onAddList: (String) -> Unit,
@@ -403,6 +405,14 @@ fun OrgtdApp(
                 onPostponeTask(editing.line, days)
                 editingLine = -1
             },
+            onArchive = {
+                onArchiveTask(editing.line)
+                editingLine = -1
+            },
+            onUnarchive = {
+                onUnarchiveTask(editing.line)
+                editingLine = -1
+            },
         )
     }
 }
@@ -425,7 +435,28 @@ private fun TodayTab(
     when (Range.entries[rangeIndex]) {
         Range.Today -> TaskList(state.today, today, onToggle, onOpen, onPostpone, strings.noTasksToday)
         Range.Week -> TaskList(state.week, today, onToggle, onOpen, onPostpone, strings.noTasksWeek)
-        Range.Completed -> TaskList(state.completed, today, onToggle, onOpen, onPostpone, strings.noCompleted)
+        Range.Completed -> {
+            var showArchived by rememberSaveable { mutableStateOf(false) }
+            Column(Modifier.fillMaxSize()) {
+                Row(Modifier.padding(horizontal = 16.dp)) {
+                    FilterChip(
+                        selected = showArchived,
+                        onClick = { showArchived = !showArchived },
+                        label = { Text(strings.archived) },
+                    )
+                }
+                Box(Modifier.weight(1f)) {
+                    TaskList(
+                        tasks = if (showArchived) state.archived else state.completed,
+                        today = today,
+                        onToggle = onToggle,
+                        onOpen = onOpen,
+                        onPostpone = onPostpone,
+                        emptyText = if (showArchived) strings.noArchived else strings.noCompleted,
+                    )
+                }
+            }
+        }
         Range.All -> {
             val groups = state.tasks.filter { !it.done }.groupBy { it.listName ?: strings.ungrouped }
             if (groups.isEmpty()) {

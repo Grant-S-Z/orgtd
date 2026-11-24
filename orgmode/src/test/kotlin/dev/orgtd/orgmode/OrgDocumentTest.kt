@@ -345,6 +345,44 @@ class OrgDocumentTest {
         assertEquals("* 工作\n* 生活\n* 已删除\n** 旧清单\n", next)
     }
 
+    // ------------------------------------------------------------ 属性
+
+    @Test
+    fun `没有抽屉时 setProperty 会创建抽屉`() {
+        val target = document.entryAt(lineOf("* TODO 修改培养计划"))!!
+        val updated = document.setProperty(target, "ARCHIVED_AT", "[2026-11-24 Tue 16:00]")
+
+        val expected = source.replace(
+            "* TODO 修改培养计划\n",
+            "* TODO 修改培养计划\n  :PROPERTIES:\n  :ARCHIVED_AT: [2026-11-24 Tue 16:00]\n  :END:\n",
+        )
+        assertEquals(expected, updated.serialize())
+    }
+
+    @Test
+    fun `已有抽屉时 setProperty 覆盖同名属性`() {
+        val sleep = document.entries.first()
+        val updated = document.setProperty(sleep, "MODIFIED", "[2026-11-24 Tue 16:00]")
+
+        assertEquals("[2026-11-24 Tue 16:00]", updated.entries.first().properties["MODIFIED"])
+        // 原文件本来就有两条 MODIFIED（Sleep / Get up），覆盖不应新增
+        assertEquals(2, Regex(":MODIFIED:").findAll(updated.serialize()).count())
+    }
+
+    @Test
+    fun `removeProperty 删除属性并在抽屉变空时清掉抽屉`() {
+        val sleep = document.entries.first()
+        val withId = document.setProperty(sleep, "ID", "x")
+        val withoutId = withId.removeProperty(withId.entries.first(), "ID")
+        assertEquals(source, withoutId.serialize())
+
+        val single = OrgDocument.parse("* TODO 一件\n  :PROPERTIES:\n  :ID: abc\n  :END:\n")
+        assertEquals(
+            "* TODO 一件\n",
+            single.removeProperty(single.entries.first(), "ID").serialize(),
+        )
+    }
+
     private fun lineOf(headline: String): Int {
         val lines = source.split("\n")
         val index = lines.indexOfFirst { it == headline }

@@ -30,6 +30,7 @@ object TaskMapper {
                 },
                 reminderAt = reminderAt(headline),
                 body = bodyText(doc, headline),
+                archived = headline.properties.containsKey("ARCHIVED_AT"),
             )
         }
     }
@@ -59,7 +60,7 @@ object TaskMapper {
             if (PLANNING.matcher(text).find()) continue
             parts += text
         }
-        return parts.joinToString(" ")
+        return parts.joinToString("\n")
     }
 
     /** 只对带时刻的计划行提醒：优先 SCHEDULED，其次 DEADLINE。 */

@@ -119,6 +119,58 @@ class OrgDocument private constructor(val lines: List<String>) {
         return OrgDocument(out)
     }
 
+    /** 写入/覆盖一个属性；没有属性抽屉时自动补一个。 */
+    fun setProperty(target: Headline, key: String, value: String): OrgDocument {
+        val out = lines.toMutableList()
+        val nl = newline(out)
+        val drawer = findPropertiesDrawer(out, target)
+
+        if (drawer == null) {
+            out.addAll(
+                target.lineIndex + 1,
+                listOf(
+                    "  :PROPERTIES:$nl",
+                    "  :$key: $value$nl",
+                    "  :END:$nl",
+                ),
+            )
+            return OrgDocument(out)
+        }
+
+        val (start, end) = drawer
+        val indent = out[end].takeWhile { it == ' ' || it == '\t' }
+        for (i in start + 1 until end) {
+            val text = lineText(out[i])
+            if (PROPERTY_RE.find(text)?.groupValues?.get(1).equals(key, ignoreCase = true)) {
+                out[i] = "$indent:$key: $value$nl"
+                return OrgDocument(out)
+            }
+        }
+        out.add(end, "$indent:$key: $value$nl")
+        return OrgDocument(out)
+    }
+
+    /** 删除属性；抽屉变空时一并删掉。 */
+    fun removeProperty(target: Headline, key: String): OrgDocument {
+        val out = lines.toMutableList()
+        val drawer = findPropertiesDrawer(out, target) ?: return this
+        val (start, end) = drawer
+
+        for (i in start + 1 until end) {
+            val match = PROPERTY_RE.find(lineText(out[i])) ?: continue
+            if (match.groupValues[1].equals(key, ignoreCase = true)) {
+                out.removeAt(i)
+                break
+            }
+        }
+        if (end - 1 <= start + 1) {
+            out.removeAt(end - 1)
+            out.removeAt(start)
+            return OrgDocument(out)
+        }
+        return OrgDocument(out)
+    }
+
     /**
      * 新建任务。[list] 为 null 时追加到文件末尾（未归类），否则插到该清单子树末尾。
      */

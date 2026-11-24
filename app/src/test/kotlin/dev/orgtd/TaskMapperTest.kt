@@ -39,6 +39,17 @@ class TaskMapperTest {
     }
 
     @Test
+    fun `正文保留换行并带上归档标记`() {
+        val doc = OrgDocument.parse(
+            "* 工作\n** DONE 写周报\nCLOSED: [2026-11-24 Tue 16:00]\n  :PROPERTIES:\n  :ARCHIVED_AT: [2026-11-24 Tue 16:00]\n  :END:\n第一行\n第二行\n",
+        )
+        val task = TaskMapper.toTasks(doc).first { it.title == "写周报" }
+
+        assertEquals("第一行\n第二行", task.body)
+        assertTrue(task.archived)
+    }
+
+    @Test
     fun `子任务计数只算直接下级`() {
         val doc = OrgDocument.parse(
             "* 工作\n** TODO 父任务\n*** TODO 子一\n*** TODO 子二\n** TODO 另一个\n",

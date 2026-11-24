@@ -43,6 +43,7 @@ data class TaskUi(
     val children: Int = 0,
     val reminderAt: LocalDateTime? = null,
     val body: String = "",
+    val archived: Boolean = false,
 )
 
 data class ListUi(val line: Int, val name: String, val open: Int)
@@ -92,14 +93,18 @@ data class UiState(
 
     val ungrouped: List<TaskUi> get() = tasks.filter { it.listName == null }
 
-    /** 只展示最近 30 天完成的，避免列表无限增长；更早的属于归档范畴。 */
+    /** 只展示最近 30 天完成、且未归档的。 */
     val completed: List<TaskUi>
         get() {
             val cutoff = LocalDate.now().minusDays(30)
             return tasks.filter { task ->
-                task.done && (task.closed == null || !task.closed.toLocalDate().isBefore(cutoff))
+                task.done && !task.archived &&
+                    (task.closed == null || !task.closed.toLocalDate().isBefore(cutoff))
             }.sortedByDescending { it.closed }
         }
+
+    val archived: List<TaskUi>
+        get() = tasks.filter { it.archived }.sortedByDescending { it.closed }
 }
 
 class TaskViewModel(app: Application) : AndroidViewModel(app) {
@@ -311,6 +316,18 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
             }
             working
         }
+
+    fun archiveTask(line: Int) = mutate(line) { doc, at ->
+        val entry = doc.entryAt(at) ?: error(strings.staleTask)
+        val withId = doc.ensureId(entry)
+        val target = withId.entryAt(at) ?: error(strings.staleTask)
+        withId.setProperty(target, "ARCHIVED_AT", dev.orgtd.orgmode.OrgTime.formatClosed(LocalDateTime.now()))
+    }
+
+    fun unarchiveTask(line: Int) = mutate(line) { doc, at ->
+        val entry = doc.entryAt(at) ?: error(strings.staleTask)
+        doc.removeProperty(entry, "ARCHIVED_AT")
+    }
 
     /** 推迟：保留原有时刻与重复规则；没有计划行时补一个日期。 */
     fun postponeTask(line: Int, days: Long = 1) = mutate(line) { doc, at ->
