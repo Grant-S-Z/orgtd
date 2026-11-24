@@ -3,7 +3,7 @@
 [![CI](https://github.com/Grant-S-Z/orgtd/actions/workflows/ci.yml/badge.svg)](https://github.com/Grant-S-Z/orgtd/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Grant-S-Z/orgtd)](https://github.com/Grant-S-Z/orgtd/releases)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
-![minSdk](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-green)
+![minSdk](https://img.shields.io/badge/Android-8.0%2B-green)
 
 把 org 文件当数据源的 Android GTD 客户端。在 Emacs 里管 `~/org`，在手机上用滴答清单式的界面看今天、勾任务、临时加一条——写回去的还是同一个纯文本 `.org` 文件。
 
