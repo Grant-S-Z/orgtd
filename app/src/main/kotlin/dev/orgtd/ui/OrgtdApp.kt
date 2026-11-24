@@ -120,6 +120,7 @@ fun OrgtdApp(
     onRequestExactAlarm: () -> Unit,
     onPickFolder: () -> Unit,
     onCreateInternalFile: () -> Unit,
+    onExportFile: suspend () -> String?,
     onCreateFileInFolder: () -> Unit,
     onUseInternal: () -> Unit,
     onRefresh: () -> Unit,
@@ -351,6 +352,7 @@ fun OrgtdApp(
             onSetRemindDateOnly = onSetRemindDateOnly,
             onSetFileName = onSetFileName,
             onUseInternal = onUseInternal,
+            onExportFile = onExportFile,
         )
     }
 

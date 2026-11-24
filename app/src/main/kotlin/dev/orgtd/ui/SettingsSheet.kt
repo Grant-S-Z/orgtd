@@ -50,6 +50,7 @@ import dev.orgtd.data.DarkMode
 import dev.orgtd.data.StorageMode
 import dev.orgtd.ui.theme.OrgtdPalettes
 import dev.orgtd.ui.theme.ThemePalette
+import dev.orgtd.data.FileExporter
 import dev.orgtd.ui.theme.displayName
 import dev.orgtd.update.UpdateChecker
 import dev.orgtd.update.UpdateInfo
@@ -71,6 +72,7 @@ fun SettingsSheet(
     onSetRemindDateOnly: (Boolean) -> Unit,
     onSetFileName: (String) -> Unit,
     onUseInternal: () -> Unit,
+    onExportFile: suspend () -> String?,
 ) {
     val strings = LocalStrings.current
     val sheetState = rememberBottomSheetState(
@@ -84,6 +86,7 @@ fun SettingsSheet(
     var checking by remember { mutableStateOf(false) }
     var checkMessage by remember { mutableStateOf<String?>(null) }
     var available by remember { mutableStateOf<UpdateInfo?>(null) }
+    var exportMessage by remember { mutableStateOf<String?>(null) }
 
     var mode by rememberSaveable { mutableStateOf(settings.mode) }
     var fileName by rememberSaveable(settings.fileNameValue) { mutableStateOf(settings.fileNameValue) }
@@ -281,6 +284,36 @@ fun SettingsSheet(
             )
             Row {
                 Button(onClick = { onSetFileName(fileName) }) { Text(strings.save) }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+            Text(strings.exportTitle, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = strings.exportHint,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(
+                onClick = {
+                    scope.launch {
+                        exportMessage = null
+                        val content = onExportFile()
+                        if (content == null) {
+                            exportMessage = strings.exportFailed
+                        } else {
+                            runCatching {
+                                FileExporter.share(context, settings.fileNameValue, content)
+                            }.onFailure { exportMessage = "${strings.exportFailed}: ${it.message}" }
+                        }
+                    }
+                },
+            ) { Text(strings.exportTitle) }
+            exportMessage?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             HorizontalDivider(Modifier.padding(vertical = 4.dp))

@@ -66,6 +66,12 @@ class AppStrings(private val en: Boolean) {
     val postponeInWeek = s("推迟一周", "Postpone a week")
     val swipeComplete = s("完成", "Complete")
     val swipePostpone = s("推迟", "Postpone")
+    val exportTitle = s("分享 org 文件", "Share org file")
+    val exportHint = s(
+        "把当前文件通过系统分享发送到坚果云、文件管理器或其他应用，用于换设备或迁移。",
+        "Send the current file through the system share sheet to Nutstore, a file manager, or another app — useful for migration.",
+    )
+    val exportFailed = s("导出失败", "Export failed")
     val about = s("关于", "About")
     fun versionLabel(version: String) = s("版本 $version", "Version $version")
     val checkUpdate = s("检查更新", "Check for updates")

@@ -81,7 +81,7 @@ The app password is encrypted with the Android Keystore. Each write re-reads the
 
 ### Start from scratch
 
-If you do not have an org file yet, the first screen offers **"Start a new org file on this phone"**. The app creates `gtd.org` in its private storage with a small starter template — no folder picker, no Nutstore account, no Emacs required. You can switch to WebDAV or a local folder later in Settings.
+If you do not have an org file yet, the first screen offers **"Start a new org file on this phone"**. The app creates `gtd.org` in its private storage with a small starter template — no folder picker, no Nutstore account, no Emacs required. You can switch to WebDAV or a local folder later in Settings, and use **Settings → Share org file** to export the current file through the system share sheet (send it to Nutstore, a file manager, or another device).
 
 ### Local folder
 

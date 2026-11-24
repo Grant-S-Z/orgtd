@@ -508,3 +508,10 @@ material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案�
 
 - App 私有目录的文件随卸载删除（系统自动备份可能保留），也不参与任何同步；适合刚开始用、之后再接 WebDAV 的人。
 - 切换存储方式不会自动搬运已有文件，后续需要「导出/分享」功能来迁移（尚未实现）。
+
+## 32. 导出当前 org 文件（2026-11-24）
+
+- 设置 → 数据区新增「分享 org 文件」：读取当前存储（App 内 / 本地目录 / WebDAV）的最新内容，写入 `cacheDir/export/gtd.org`，通过 `FileProvider` + `ACTION_SEND` 调起系统分享面板。
+- 用于新手把 App 内文件发到坚果云或文件管理器，也用于换设备前的备份；不改变任何存储模式、不写远端。
+- 新增 `FileExporter`、`file_paths.xml` 与 manifest 的 `FileProvider` 声明；分享的是缓存副本，导出内容与当前文件一致。
+- 验证：模拟器上点「分享 org 文件」→ 系统分享面板显示「Sharing 1 file / gtd.org」及应用列表。

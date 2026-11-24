@@ -120,6 +120,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onPickFolder = { picker.launch(null) },
                     onCreateInternalFile = viewModel::createInternalFile,
+                    onExportFile = viewModel::exportContent,
                     onCreateFileInFolder = viewModel::createFileInCurrentFolder,
                     onUseInternal = viewModel::useInternal,
                     onRefresh = viewModel::refresh,

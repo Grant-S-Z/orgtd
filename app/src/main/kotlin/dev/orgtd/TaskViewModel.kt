@@ -545,6 +545,11 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         else -> "${strings.writeFailed}: ${error.message}"
     }
 
+    /** 供「分享当前 org 文件」读取一次当前内容。 */
+    suspend fun exportContent(): String? = withContext(Dispatchers.IO) {
+        source?.read()?.text
+    }
+
     fun clearError() = _state.update { it.copy(error = null) }
 
     // ---------------------------------------------------------------- 映射
