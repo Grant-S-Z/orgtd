@@ -5,12 +5,25 @@ import dev.orgtd.orgmode.OrgDocument
 import java.time.LocalDateTime
 import java.util.regex.Pattern
 
-/** org 文档到界面模型，View 层与后台（开机重排、通知动作）共用。 */
+/**
+ * org 文档到界面模型，View 层与后台（开机重排、通知动作）共用。
+ *
+ * 三层结构：清单（顶层无状态词标题）→ 项目（下层无状态词标题）→ 任务（带 TODO/DONE 的标题）。
+ * 只有两层时项目为 null，行为和以前一致。
+ */
 object TaskMapper {
+
+    private val COMPLETED_PROJECT_TAGS = setOf("PROJECT_DONE", "ARCHIVE")
 
     fun toTasks(doc: OrgDocument): List<TaskUi> {
         val lists = doc.entries.filter { it.isList }
+        val projects = doc.entries.filter { it.isProject }
+
         return doc.entries.filter { it.isTask }.map { headline ->
+            val list = nearestAncestor(lists, headline.lineIndex)
+            val project = nearestAncestor(projects, headline.lineIndex)
+            val completed = isCompleted(project) || isCompleted(list)
+
             TaskUi(
                 line = headline.lineIndex,
                 title = headline.title,
@@ -20,7 +33,11 @@ object TaskMapper {
                 repeater = headline.scheduled?.repeater,
                 priority = headline.priority,
                 tags = headline.tags,
-                listName = owningList(lists, headline.lineIndex),
+                listName = list?.title,
+                listLine = list?.lineIndex,
+                projectName = project?.title,
+                projectLine = project?.lineIndex,
+                projectCompleted = completed,
                 level = headline.level,
                 closed = headline.closed,
                 children = childrenOf(doc, headline).size,
@@ -34,13 +51,38 @@ object TaskMapper {
 
     fun toLists(doc: OrgDocument, tasks: List<TaskUi>): List<ListUi> =
         doc.entries.filter { it.isList }.map { list ->
-            val open = tasks.count {
-                !it.done && it.line > list.lineIndex && it.line < list.endExclusive
+            val scoped = tasks.filter {
+                it.line > list.lineIndex && it.line < list.endExclusive && !it.projectCompleted
             }
-            val done = tasks.count {
-                it.done && it.line > list.lineIndex && it.line < list.endExclusive
-            }
-            ListUi(list.lineIndex, list.title, open, done)
+            ListUi(list.lineIndex, list.title, scoped.count { !it.done }, scoped.count { it.done })
+        }
+
+    fun toGroups(doc: OrgDocument, tasks: List<TaskUi>): List<GroupUi> {
+        val lists = doc.entries.filter { it.isList }
+        return doc.entries.filter { it.isProject }.map { project ->
+            val list = nearestAncestor(lists, project.lineIndex)
+            val scoped = tasks.filter { it.projectLine == project.lineIndex }
+            GroupUi(
+                line = project.lineIndex,
+                name = project.title,
+                path = list?.let { "${it.title} / ${project.title}" } ?: project.title,
+                listName = list?.title,
+                listLine = list?.lineIndex,
+                open = scoped.count { !it.done },
+                done = scoped.count { it.done },
+                completed = isCompleted(project),
+            )
+        }
+    }
+
+    private fun nearestAncestor(entries: List<Headline>, line: Int): Headline? =
+        entries
+            .filter { it.lineIndex < line && line < it.endExclusive }
+            .maxByOrNull { it.level }
+
+    private fun isCompleted(headline: Headline?): Boolean =
+        headline != null && headline.tags.any { tag ->
+            COMPLETED_PROJECT_TAGS.any { it.equals(tag, ignoreCase = true) }
         }
 
     private fun childrenOf(doc: OrgDocument, parent: Headline): List<Headline> =
@@ -81,7 +123,4 @@ object TaskMapper {
         }
         return null
     }
-
-    private fun owningList(lists: List<Headline>, line: Int): String? =
-        lists.filter { it.lineIndex < line && line < it.endExclusive }.maxByOrNull { it.lineIndex }?.title
 }

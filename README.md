@@ -27,6 +27,8 @@ orgtd is not another task database. It reads and writes your existing `gtd.org` 
 - Swipe left to complete, swipe right to postpone by one day; the detail sheet offers 1 / 3 / 7-day postpone.
 - The detail sheet shows the body text under the heading, preserving line breaks.
 - Multi-level headings become subtasks. When every direct subtask is done, the parent task is completed automatically; reopening a subtask reopens the parent.
+- A three-level layout (category → project → task) is supported: project headings are shown as sections with their own open/done counts, and task meta shows the full path such as `Work / IRF`.
+- Projects can be marked complete manually with a `:PROJECT_DONE:` tag on the project heading (never automatic). Their tasks are then hidden from Today / This week / All and search, but remain visible in the list detail and can be restored by removing the tag.
 
 **Organization**
 

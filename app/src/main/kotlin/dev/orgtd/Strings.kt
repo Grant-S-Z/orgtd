@@ -32,6 +32,10 @@ class AppStrings(private val en: Boolean) {
     fun archiveAllConfirm(count: Int) =
         s("归档全部 $count 个已完成任务？归档后可在「已归档」里取消归档。", "Archive all $count completed tasks? You can restore them from Archived later.")
     val moveToList = s("移动到清单", "Move to list")
+    val completedProjects = s("已完成项目", "Completed projects")
+    val completeProject = s("标记项目完成", "Mark project complete")
+    val reopenProject = s("重新打开项目", "Reopen project")
+    val projectAllDone = s("所有任务已完成，可以标记项目完成", "All tasks done — you can mark this project complete")
     val search = s("搜索", "Search")
 
     // 通用动作

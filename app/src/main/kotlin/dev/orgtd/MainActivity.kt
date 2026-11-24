@@ -133,6 +133,8 @@ class MainActivity : ComponentActivity() {
                     onUnarchiveTask = viewModel::unarchiveTask,
                     onMoveTask = viewModel::moveTask,
                     onArchiveAllCompleted = viewModel::archiveAllCompleted,
+                    onCompleteProject = viewModel::completeProject,
+                    onReopenProject = viewModel::reopenProject,
                     onDeleteTask = viewModel::deleteTask,
                     onUndoDelete = viewModel::undoDelete,
                     onAddList = viewModel::addList,

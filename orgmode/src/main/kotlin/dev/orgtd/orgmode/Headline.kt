@@ -50,5 +50,8 @@ data class Headline(
     /** 顶层、且没有状态词 —— 按约定就是「清单」。 */
     val isList: Boolean get() = level == 1 && keyword == null
 
+    /** 非顶层、且没有状态词 —— 按约定就是「项目 / 分组标题」。 */
+    val isProject: Boolean get() = level > 1 && keyword == null
+
     val date: LocalDate? get() = scheduled?.date ?: deadline?.date
 }

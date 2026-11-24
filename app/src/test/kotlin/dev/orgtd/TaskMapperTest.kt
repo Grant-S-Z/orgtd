@@ -50,6 +50,38 @@ class TaskMapperTest {
     }
 
     @Test
+    fun `三层结构映射出项目与完成状态`() {
+        val doc = OrgDocument.parse(
+            """
+* Work
+** 项目甲 :PROJECT_DONE:
+*** TODO 待办
+** 项目乙
+*** TODO 待办二
+* PhD
+** TODO 直挂任务
+""".trimIndent() + "\n",
+        )
+        val tasks = TaskMapper.toTasks(doc)
+        val lists = TaskMapper.toLists(doc, tasks)
+        val groups = TaskMapper.toGroups(doc, tasks)
+
+        val done = tasks.first { it.title == "待办" }
+        assertEquals("项目甲", done.projectName)
+        assertEquals("Work", done.listName)
+        assertTrue(done.projectCompleted)
+
+        val open = tasks.first { it.title == "待办二" }
+        assertEquals("项目乙", open.projectName)
+        assertTrue(!open.projectCompleted)
+
+        // 已完成项目的任务不再计入清单待办
+        assertEquals(1, lists.first { it.name == "Work" }.open)
+        assertEquals(2, groups.size)
+        assertTrue(groups.first { it.name == "项目甲" }.completed)
+    }
+
+    @Test
     fun `子任务计数只算直接下级`() {
         val doc = OrgDocument.parse(
             "* 工作\n** TODO 父任务\n*** TODO 子一\n*** TODO 子二\n** TODO 另一个\n",

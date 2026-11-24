@@ -35,7 +35,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.orgtd.ListUi
 import dev.orgtd.TaskUi
 import java.time.LocalDate
 import java.time.LocalTime
@@ -98,7 +97,7 @@ fun TaskSheet(
     onPostpone: (Long) -> Unit,
     onArchive: () -> Unit,
     onUnarchive: () -> Unit,
-    lists: List<ListUi>,
+    destinations: List<Pair<Int, String>>,
     onMoveTo: (Int?) -> Unit,
 ) {
     val strings = LocalStrings.current
@@ -209,10 +208,10 @@ fun TaskSheet(
                             text = { Text(strings.ungrouped) },
                             onClick = { moveMenu = false; onMoveTo(null) },
                         )
-                        lists.forEach { list ->
+                        destinations.forEach { (line, label) ->
                             DropdownMenuItem(
-                                text = { Text(list.name) },
-                                onClick = { moveMenu = false; onMoveTo(list.line) },
+                                text = { Text(label) },
+                                onClick = { moveMenu = false; onMoveTo(line) },
                             )
                         }
                     }

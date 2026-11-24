@@ -41,6 +41,10 @@ data class TaskUi(
     val priority: Char?,
     val tags: List<String>,
     val listName: String?,
+    val listLine: Int? = null,
+    val projectName: String? = null,
+    val projectLine: Int? = null,
+    val projectCompleted: Boolean = false,
     val level: Int = 1,
     val closed: LocalDateTime? = null,
     val children: Int = 0,
@@ -51,6 +55,25 @@ data class TaskUi(
 )
 
 data class ListUi(val line: Int, val name: String, val open: Int, val done: Int)
+
+data class GroupUi(
+    val line: Int,
+    val name: String,
+    val path: String,
+    val listName: String?,
+    val listLine: Int?,
+    val open: Int,
+    val done: Int,
+    val completed: Boolean,
+)
+
+/** 任务用于分组的路径：清单 / 项目。 */
+fun TaskUi.groupingPath(ungrouped: String): String =
+    listName?.let { list -> projectName?.let { "$list / $it" } ?: list } ?: projectName ?: ungrouped
+
+/** 任务元信息里显示的项目路径。 */
+fun TaskUi.projectPath(): String? =
+    listName?.let { list -> projectName?.let { "$list / $it" } ?: list } ?: projectName
 
 /** 搜索匹配标题、正文与标签。 */
 fun TaskUi.matches(query: String): Boolean =
@@ -79,6 +102,7 @@ data class UiState(
     val error: String? = null,
     val tasks: List<TaskUi> = emptyList(),
     val lists: List<ListUi> = emptyList(),
+    val groups: List<GroupUi> = emptyList(),
     val settings: SettingsUi = SettingsUi(),
     val sourceLabel: String = "",
     val offline: Boolean = false,
@@ -88,18 +112,18 @@ data class UiState(
         .thenBy { it.time ?: LocalTime.MAX }
 
     val today: List<TaskUi>
-        get() = tasks.filter { !it.done && it.date != null && !it.date.isAfter(LocalDate.now()) }
+        get() = tasks.filter { !it.done && !it.projectCompleted && it.date != null && !it.date.isAfter(LocalDate.now()) }
             .sortedWith(BY_DATE_THEN_TIME)
 
     val week: List<TaskUi>
         get() {
             val today = LocalDate.now()
             return tasks.filter {
-                !it.done && it.date != null && it.date.isAfter(today) && !it.date.isAfter(today.plusDays(7))
+                !it.done && !it.projectCompleted && it.date != null && it.date.isAfter(today) && !it.date.isAfter(today.plusDays(7))
             }.sortedWith(BY_DATE_THEN_TIME)
         }
 
-    val ungrouped: List<TaskUi> get() = tasks.filter { it.listName == null }
+    val ungrouped: List<TaskUi> get() = tasks.filter { it.listName == null && !it.projectCompleted }
 
     /** 只展示最近 30 天完成、且未归档的。 */
     val completed: List<TaskUi>
@@ -343,8 +367,8 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         if (title.isBlank()) return
         val id = UUID.randomUUID().toString()
         mutate(listLine) { doc, at ->
-            val list = doc.entryAt(at)?.takeIf { it.isList }
-            doc.appendTask(title.trim(), id, date, list)
+            val parent = doc.entryAt(at)?.takeIf { it.keyword == null }
+            doc.appendTask(title.trim(), id, date, parent)
         }
     }
 
@@ -412,8 +436,20 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
     /** 把任务移到另一个清单；[listLine] 为 null 表示移到「未归类」。 */
     fun moveTask(line: Int, listLine: Int?) = mutate(line) { doc, at ->
         val entry = doc.entryAt(at) ?: error(strings.staleTask)
-        val destination = listLine?.let { lineNo -> doc.entryAt(lineNo)?.takeIf { it.isList } }
+        val destination = listLine?.let { lineNo -> doc.entryAt(lineNo)?.takeIf { it.keyword == null } }
         doc.moveTask(entry, destination)
+    }
+
+    /** 手动标记项目完成（写标签，不自动触发、不改子任务状态）。 */
+    fun completeProject(line: Int) = mutate(line) { doc, at ->
+        val entry = doc.entryAt(at) ?: error(strings.staleList)
+        if (entry.keyword != null) return@mutate doc
+        doc.addTag(entry, "PROJECT_DONE")
+    }
+
+    fun reopenProject(line: Int) = mutate(line) { doc, at ->
+        val entry = doc.entryAt(at) ?: error(strings.staleList)
+        doc.removeTag(entry, "PROJECT_DONE").removeTag(entry, "ARCHIVE")
     }
 
     /** 一次性归档所有已完成、且尚未归档的任务。 */
@@ -563,6 +599,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
                 missingFile = false,
                 tasks = tasks,
                 lists = TaskMapper.toLists(doc, tasks),
+                groups = TaskMapper.toGroups(doc, tasks),
                 sourceLabel = src.label,
                 offline = snapshot.fromCache,
             )
@@ -593,6 +630,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
                 error = null,
                 tasks = tasks,
                 lists = TaskMapper.toLists(doc, tasks),
+                groups = TaskMapper.toGroups(doc, tasks),
                 sourceLabel = sourceLabel,
                 offline = offline,
             )

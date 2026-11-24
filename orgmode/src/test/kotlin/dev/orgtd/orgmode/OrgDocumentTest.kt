@@ -487,6 +487,45 @@ SCHEDULED: <2026-11-25 Wed>
         assertEquals(1, Regex("\\*\\* TODO 父任务").findAll(moved).count())
     }
 
+    // ------------------------------------------------------------ 标签与项目
+
+    @Test
+    fun `addTag 追加标签并保留已有标签`() {
+        val doc = OrgDocument.parse("* Work\n** IRF :old:\n")
+        val project = doc.entries.first { it.title == "IRF" }
+        val tagged = doc.addTag(project, "PROJECT_DONE")
+
+        assertEquals("* Work\n** IRF :old:PROJECT_DONE:\n", tagged.serialize())
+        assertEquals(listOf("old", "PROJECT_DONE"), tagged.entries.first { it.title == "IRF" }.tags)
+    }
+
+    @Test
+    fun `removeTag 可以清空标签`() {
+        val doc = OrgDocument.parse("* Work\n** IRF :PROJECT_DONE:\n")
+        val project = doc.entries.first { it.title == "IRF" }
+        assertEquals("* Work\n** IRF\n", doc.removeTag(project, "PROJECT_DONE").serialize())
+    }
+
+    @Test
+    fun `任务可以在项目之间移动`() {
+        val doc = OrgDocument.parse("* Work\n** 项目甲\n*** TODO 任务一\n** 项目乙\n")
+        val task = doc.entries.first { it.title == "任务一" }
+        val dest = doc.entries.first { it.title == "项目乙" }
+
+        val moved = doc.moveTask(task, dest).serialize()
+        assertTrue(moved.contains("** 项目乙\n*** TODO 任务一\n"))
+        assertTrue(!moved.contains("** 项目甲\n*** TODO 任务一"))
+    }
+
+    @Test
+    fun `不能把任务移动进自己的子树`() {
+        val doc = OrgDocument.parse("* Work\n** 项目甲\n*** TODO 任务一\n**** 子分组\n")
+        val task = doc.entries.first { it.title == "任务一" }
+        val nested = doc.entries.first { it.title == "子分组" }
+
+        assertEquals(doc.serialize(), doc.moveTask(task, nested).serialize())
+    }
+
     private fun lineOf(headline: String): Int {
         val lines = source.split("\n")
         val index = lines.indexOfFirst { it == headline }

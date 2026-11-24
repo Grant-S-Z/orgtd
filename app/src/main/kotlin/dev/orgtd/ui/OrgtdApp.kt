@@ -74,10 +74,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import dev.orgtd.AppStrings
+import dev.orgtd.GroupUi
 import dev.orgtd.ListUi
 import dev.orgtd.Language
 import dev.orgtd.data.DarkMode
 import dev.orgtd.TaskUi
+import dev.orgtd.groupingPath
+import dev.orgtd.projectPath
 import dev.orgtd.UiStyle
 import dev.orgtd.matches
 import dev.orgtd.UiState
@@ -139,6 +142,8 @@ fun OrgtdApp(
     onUnarchiveTask: (Int) -> Unit,
     onMoveTask: (Int, Int?) -> Unit,
     onArchiveAllCompleted: () -> Unit,
+    onCompleteProject: (Int) -> Unit,
+    onReopenProject: (Int) -> Unit,
     onDeleteTask: (Int) -> Unit,
     onUndoDelete: () -> Unit,
     onAddList: (String) -> Unit,
@@ -287,6 +292,12 @@ fun OrgtdApp(
                     onToggle = onToggle,
                     onOpen = { editingLine = it },
                     onPostpone = { onPostponeTask(it, 1) },
+                    onAddToProject = { projectLine ->
+                        addScope = projectLine
+                        showAdd = true
+                    },
+                    onCompleteProject = onCompleteProject,
+                    onReopenProject = onReopenProject,
                 )
 
                 tab == Tab.Today -> TodayTab(
@@ -428,7 +439,10 @@ fun OrgtdApp(
                 onUnarchiveTask(editing.line)
                 editingLine = -1
             },
-            lists = state.lists,
+            destinations = buildList {
+                state.lists.forEach { add(it.line to it.name) }
+                state.groups.forEach { add(it.line to it.path) }
+            },
             onMoveTo = { listLine ->
                 onMoveTask(editing.line, listLine)
                 editingLine = -1
@@ -506,7 +520,7 @@ private fun TodayTab(
             }
         }
         Range.All -> GroupedTaskList(
-            tasks = state.tasks.filter { !it.done },
+            tasks = state.tasks.filter { !it.done && !it.projectCompleted },
             today = today,
             onToggle = onToggle,
             onOpen = onOpen,
@@ -524,6 +538,9 @@ private fun ListTasks(
     onToggle: (Int) -> Unit,
     onOpen: (Int) -> Unit,
     onPostpone: (Int) -> Unit,
+    onAddToProject: (Int) -> Unit,
+    onCompleteProject: (Int) -> Unit,
+    onReopenProject: (Int) -> Unit,
 ) {
     val strings = LocalStrings.current
     if (name == null) {
@@ -531,18 +548,114 @@ private fun ListTasks(
         return
     }
 
-    val tasks = state.tasks
-        .filter { if (listLine == UNGROUPED_LIST) it.listName == null else it.listName == name }
-        .sortedWith(TASK_ORDER)
+    val tasks = state.tasks.filter {
+        if (listLine == UNGROUPED_LIST) it.listName == null else it.listName == name
+    }
+    val groups = state.groups.filter {
+        if (listLine == UNGROUPED_LIST) it.listLine == null else it.listLine == listLine
+    }
+    val direct = tasks.filter { it.projectLine == null }.sortedWith(TASK_ORDER)
+    val activeGroups = groups.filter { !it.completed }
+    val completedGroups = groups.filter { it.completed }
 
-    if (tasks.isEmpty()) {
+    if (direct.isEmpty() && groups.isEmpty()) {
         EmptyHint(strings.listEmpty)
         return
     }
 
     LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-        items(tasks, key = { it.line }) { task ->
+        items(direct, key = { it.line }) { task ->
             SwipeableTaskRow(task, LocalDate.now(), onToggle, onOpen, onPostpone)
+        }
+
+        activeGroups.forEach { group ->
+            item(key = "group-${group.line}") {
+                ProjectHeader(
+                    group = group,
+                    onAdd = onAddToProject,
+                    onComplete = onCompleteProject,
+                    onReopen = onReopenProject,
+                )
+            }
+            items(
+                tasks.filter { it.projectLine == group.line }.sortedWith(TASK_ORDER),
+                key = { it.line },
+            ) { task ->
+                SwipeableTaskRow(task, LocalDate.now(), onToggle, onOpen, onPostpone)
+            }
+        }
+
+        if (completedGroups.isNotEmpty()) {
+            item(key = "completed-projects") { SectionHeader(strings.completedProjects) }
+            completedGroups.forEach { group ->
+                item(key = "group-${group.line}") {
+                    ProjectHeader(
+                        group = group,
+                        onAdd = onAddToProject,
+                        onComplete = onCompleteProject,
+                        onReopen = onReopenProject,
+                    )
+                }
+                items(
+                    tasks.filter { it.projectLine == group.line }.sortedWith(TASK_ORDER),
+                    key = { it.line },
+                ) { task ->
+                    SwipeableTaskRow(task, LocalDate.now(), onToggle, onOpen, onPostpone)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProjectHeader(
+    group: GroupUi,
+    onAdd: (Int) -> Unit,
+    onComplete: (Int) -> Unit,
+    onReopen: (Int) -> Unit,
+) {
+    val strings = LocalStrings.current
+    Column(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = group.name,
+                style = MaterialTheme.typography.titleSmall,
+                color = if (group.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = if (group.completed) strings.completed else strings.listProgress(group.open, group.done),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.weight(1f))
+
+            if (group.completed) {
+                TextButton(onClick = { onReopen(group.line) }) { Text(strings.reopenProject) }
+            } else {
+                IconButton(onClick = { onAdd(group.line) }) {
+                    Icon(Icons.Filled.Add, contentDescription = strings.newTask)
+                }
+                Box {
+                    var menu by remember { mutableStateOf(false) }
+                    IconButton(onClick = { menu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = strings.listActions)
+                    }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(strings.completeProject) },
+                            onClick = { menu = false; onComplete(group.line) },
+                        )
+                    }
+                }
+            }
+        }
+        if (!group.completed && group.open == 0 && group.done > 0) {
+            Text(
+                text = strings.projectAllDone,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
     }
 }
@@ -660,7 +773,7 @@ private fun SearchTab(
         if (query.isBlank()) {
             EmptyHint(strings.searchPrompt)
         } else {
-            val hits = state.tasks.filter { it.matches(query) && !it.archived }
+            val hits = state.tasks.filter { it.matches(query) && !it.archived && !it.projectCompleted }
             TaskList(hits, LocalDate.now(), onToggle, onOpen, onPostpone, strings.noMatches)
         }
     }
@@ -710,7 +823,7 @@ private fun GroupedTaskList(
         return
     }
 
-    val groups = tasks.groupBy { it.listName ?: strings.ungrouped }
+    val groups = tasks.groupBy { it.groupingPath(strings.ungrouped) }
     LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
         groups.forEach { (name, groupTasks) ->
             item(key = "header-$name") { SectionHeader(name) }
@@ -906,7 +1019,7 @@ private fun taskMeta(task: TaskUi, today: LocalDate, strings: AppStrings): List<
     task.closed?.let { add(strings.completedOn(strings.formatDate(it.toLocalDate(), today))) }
     task.repeater?.let { add(strings.repeats(it)) }
     if (task.children > 0) add(strings.subtasksProgress(task.childrenDone, task.children))
-    task.listName?.let { add(it) }
+    task.projectPath()?.let { add(it) }
     if (task.tags.isNotEmpty()) add(task.tags.joinToString(" ") { "#$it" })
 }
 

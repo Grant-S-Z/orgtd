@@ -86,6 +86,52 @@ class OrgDocument private constructor(val lines: List<String>) {
         return doc
     }
 
+    /** 在标题行末尾添加标签（已存在则不动）。 */
+    fun addTag(target: Headline, tag: String): OrgDocument {
+        if (target.tags.any { it.equals(tag, ignoreCase = true) }) return this
+
+        val out = lines.toMutableList()
+        val raw = out[target.lineIndex]
+        val text = lineText(raw)
+        val nl = raw.substring(text.length)
+        val match = TAGS_RE.find(text)
+        val base = if (match != null) text.substring(0, match.range.first).trimEnd() else text.trimEnd()
+        val tags = target.tags + tag
+
+        val rebuilt = buildString {
+            append(base)
+            if (isNotEmpty()) append(' ')
+            append(tags.joinToString(":", ":", ":"))
+        }
+        out[target.lineIndex] = rebuilt + nl
+        return OrgDocument(out)
+    }
+
+    /** 删除标题上的标签；没有该标签则原样返回。 */
+    fun removeTag(target: Headline, tag: String): OrgDocument {
+        val raw = lines[target.lineIndex]
+        val text = lineText(raw)
+        val match = TAGS_RE.find(text) ?: return this
+        if (target.tags.none { it.equals(tag, ignoreCase = true) }) return this
+
+        val out = lines.toMutableList()
+        val nl = raw.substring(text.length)
+        val base = text.substring(0, match.range.first).trimEnd()
+        val tags = target.tags.filterNot { it.equals(tag, ignoreCase = true) }
+
+        val rebuilt = if (tags.isEmpty()) {
+            base
+        } else {
+            buildString {
+                append(base)
+                if (isNotEmpty()) append(' ')
+                append(tags.joinToString(":", ":", ":"))
+            }
+        }
+        out[target.lineIndex] = rebuilt + nl
+        return OrgDocument(out)
+    }
+
     /**
      * 把任务（连同它的子树）移动到目标清单末尾。
      *
@@ -93,8 +139,10 @@ class OrgDocument private constructor(val lines: List<String>) {
      * 子标题层级会一起平移，保证移动后仍然是目标清单的下级。
      */
     fun moveTask(target: Headline, destination: Headline?): OrgDocument {
-        if (destination != null && !destination.isList) return this
-        if (destination?.lineIndex == target.lineIndex) return this
+        // 目的地只能是「非任务标题」（清单或项目），不能把任务移到另一个任务下面
+        if (destination != null && destination.keyword != null) return this
+        // 不能把任务移到自己的子树里
+        if (destination != null && destination.lineIndex in target.lineIndex until target.endExclusive) return this
 
         val block = lines.subList(target.lineIndex, target.endExclusive).toMutableList()
         val newLevel = (destination?.level ?: 0) + 1
