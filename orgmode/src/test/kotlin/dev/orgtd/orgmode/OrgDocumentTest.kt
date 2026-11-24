@@ -526,6 +526,41 @@ SCHEDULED: <2026-11-25 Wed>
         assertEquals(doc.serialize(), doc.moveTask(task, nested).serialize())
     }
 
+    // ------------------------------------------------------------ 同文件归档
+
+    @Test
+    fun `归档与 Emacs 同文件格式一致`() {
+        val now = LocalDateTime.of(2026, 11, 25, 6, 30)
+        var doc = OrgDocument.parse("* Work\n** TODO 任务一\nSCHEDULED: <2026-11-25 Wed>\n")
+        doc = doc.ensureId(doc.entries.first { it.title == "任务一" })
+        val id = doc.entries.first { it.title == "任务一" }.id!!
+
+        val archived = doc.archive(id, "gtd.org", now).serialize()
+        assertTrue(archived.startsWith("#+ARCHIVE: %s::* Archived\n"))
+        assertTrue(archived.contains("* Archived"))
+        assertTrue(archived.contains("** TODO 任务一"))
+        assertTrue(archived.contains(":ARCHIVE_TIME: 2026-11-25 Wed 06:30"))
+        assertTrue(archived.contains(":ARCHIVE_FILE: gtd.org"))
+        assertTrue(archived.contains(":ARCHIVE_CATEGORY: gtd"))
+        assertTrue(!archived.contains("\n* TODO 任务一"))
+    }
+
+    @Test
+    fun `取消归档恢复层级并清掉归档属性`() {
+        val now = LocalDateTime.of(2026, 11, 25, 6, 30)
+        var doc = OrgDocument.parse("* Work\n** TODO 任务一\n")
+        doc = doc.ensureId(doc.entries.first { it.title == "任务一" })
+        val id = doc.entries.first { it.title == "任务一" }.id!!
+        doc = doc.archive(id, "gtd.org", now)
+
+        val archivedEntry = doc.entries.first { it.title == "任务一" }
+        val restored = doc.unarchive(archivedEntry).serialize()
+        assertTrue(restored.contains("\n* TODO 任务一\n"))
+        assertTrue(!restored.contains("** TODO 任务一"))
+        assertTrue(!restored.contains(":ARCHIVE_TIME:"))
+        assertTrue(restored.contains("* Archived"))
+    }
+
     private fun lineOf(headline: String): Int {
         val lines = source.split("\n")
         val index = lines.indexOfFirst { it == headline }

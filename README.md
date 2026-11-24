@@ -35,7 +35,7 @@ orgtd is not another task database. It reads and writes your existing `gtd.org` 
 - Inbox and lists (a top-level org heading is a list; open one to see its tasks).
 - Create, rename, reorder, and soft-delete lists; each row shows open/done counts.
 - Search covers titles, body text, and tags.
-- Completed tasks can be archived (one by one or all at once): an `:ARCHIVED_AT:` property hides them from Done; switch to Archived to restore them.
+- Completed tasks can be archived (one by one or all at once) in the same format Emacs uses for in-file archiving: the app adds `#+ARCHIVE: %s::* Archived`, moves the subtree under `* Archived` and writes `:ARCHIVE_TIME:` / `:ARCHIVE_FILE:` / `:ARCHIVE_CATEGORY:`. Archived tasks disappear from the app; switch to Archived to restore one (it comes back as a top-level task).
 
 **Sync and offline**
 

@@ -552,3 +552,35 @@ material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案�
 - 完成状态影响：`today / week / ungrouped` 和 `All` 过滤 `projectCompleted`；**搜索不过滤**（DONE 和已完成项目的任务都应能搜到，只有 `:ARCHIVED_AT:` 归档才彻底消失）；清单详情仍显示；`ListUi` 计数排除已完成项目。
 - `addTaskToList` 与 `moveTask` 的目的地从「仅顶层清单」放宽到「任意非任务标题」，因此可以在项目下新建、在项目之间移动；移动仍禁止进入自己的子树。
 - 验证：三层样例中 Work 详情显示「项目甲 2 open · 1 done / 项目乙 0 open · 1 done」，项目乙标记完成后写入 `** 项目乙 :PROJECT_DONE:`，其待办任务在 All 和搜索中消失，清单详情底部显示「已完成项目 / 重新打开」。
+
+## 36. 归档改为 Emacs 同文件格式（2026-11-25）
+
+用 Emacs 实测确认了同文件归档的真实格式（之前设计文档里只写了"软删除属性"，不准确）：
+
+```org
+#+ARCHIVE: %s::* Archived
+* Work
+** TODO 任务
+* Archived
+** Work                    ← 层级 +1（目标标题层级 + 1）
+:PROPERTIES:
+:ARCHIVE_TIME: 2026-11-25 Wed 06:30
+:ARCHIVE_FILE: /path/to/gtd.org
+:ARCHIVE_CATEGORY: gtd
+:END:
+*** TODO 任务
+```
+
+实现（`OrgDocument.archive / unarchive`）：
+
+- 归档前确保文件头有 `#+ARCHIVE: %s::* Archived`（已有则覆盖为同一目标，保证 Emacs 和 App 写同一位置）；
+- 目标标题 `* Archived` 不存在时追加到文件末尾；
+- 子树按「目标层级 + 1」平移（原来在清单下的 `**` 任务仍保持 `**`），并在空行后追加；
+- 顶部标题写入 `:ARCHIVE_TIME:`（`yyyy-MM-dd EEE HH:mm`）、`:ARCHIVE_FILE:`（手机侧只能写文件名）、`:ARCHIVE_CATEGORY:`（去掉扩展名的文件名），并入已有属性抽屉；
+- 取消归档：删掉 ARCHIVE_* 属性，子树恢复到文件末尾并变为顶层任务（原始父清单不记录，避免引入 Emacs 不识别的属性）。
+
+验证：
+
+1. App 归档 `任务一` 后，文件出现 `#+ARCHIVE`、`* Archived` 与 `ARCHIVE_*` 属性；
+2. 把文件拷到 Emacs 执行 `org-archive-subtree`，Emacs 识别该指令并把另一个子树归档到同一个 `* Archived` 下；
+3. App 能识别 Emacs 写入的 `ARCHIVE_TIME` 条目为已归档；「已归档」页取消归档后，属性被删除、任务回到文件末尾并提升为 `* DONE`。

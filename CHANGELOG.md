@@ -2,6 +2,7 @@
 
 ## v0.2.1（2026-11-25）
 
+- 归档改为与 Emacs 同文件归档兼容的格式：`#+ARCHIVE: %s::* Archived` + `* Archived` + `ARCHIVE_TIME/FILE/CATEGORY` 属性；旧版 `:ARCHIVED_AT:` 仍可识别和恢复。
 - 检查更新支持 App 内直接下载并安装：下载 GitHub Release 的 APK（校验 SHA-256），交给系统安装器；首次需要允许本应用安装应用。仍保留「打开下载页」作为备选。
 - 从这一版开始，后续版本可以直接在 App 内更新，不必再去浏览器下载。
 

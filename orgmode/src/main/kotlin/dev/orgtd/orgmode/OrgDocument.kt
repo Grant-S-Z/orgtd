@@ -2,6 +2,8 @@ package dev.orgtd.orgmode
 
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.time.LocalTime
 import java.util.UUID
 
@@ -133,6 +135,106 @@ class OrgDocument private constructor(val lines: List<String>) {
     }
 
     /**
+     * 同文件归档，格式与 Emacs `org-archive-subtree`（`#+ARCHIVE: %s::* Archived`）一致：
+     *
+     * - 在文件头确保 `#+ARCHIVE: %s::* Archived` 指令；
+     * - 子树移动到文件末尾的 `* Archived` 标题下，标题层级 +1；
+     * - 顶部标题写入 `:ARCHIVE_TIME:` / `:ARCHIVE_FILE:` / `:ARCHIVE_CATEGORY:`。
+     *
+     * 返回的文档需要调用方重新解析；目标通过 `:ID:` 定位，避免行号漂移。
+     */
+    fun archive(targetId: String, fileName: String, now: LocalDateTime): OrgDocument {
+        var doc = ensureArchiveDirective()
+
+        var archivedHeading = doc.entries.firstOrNull { it.level == 1 && it.title == ARCHIVE_HEADING }
+        if (archivedHeading == null) {
+            val out = doc.lines.toMutableList()
+            val nl = newline(out)
+            ensureBlankLineBefore(out, nl)
+            out += "* $ARCHIVE_HEADING$nl"
+            doc = OrgDocument(out)
+            archivedHeading = doc.entries.firstOrNull { it.level == 1 && it.title == ARCHIVE_HEADING } ?: return this
+        }
+
+        val target = doc.entryById(targetId) ?: return this
+        if (target.lineIndex >= archivedHeading.lineIndex && target.lineIndex < archivedHeading.endExclusive) return this
+
+        val nl = newline(doc.lines)
+        val delta = (archivedHeading.level + 1) - target.level
+        val block = doc.lines.subList(target.lineIndex, target.endExclusive)
+            .map { shiftHeading(it, delta) }
+            .toMutableList()
+        val withProps = addArchiveProperties(block, fileName, now, nl)
+
+        val rest = doc.lines.toMutableList()
+        rest.subList(target.lineIndex, target.endExclusive).clear()
+
+        val insertAt = if (target.lineIndex < archivedHeading.endExclusive) {
+            archivedHeading.endExclusive - block.size
+        } else {
+            archivedHeading.endExclusive
+        }.coerceIn(0, rest.size)
+
+        val out = ArrayList<String>(rest.size + withProps.size + 1)
+        out += rest.subList(0, insertAt)
+        ensureBlankLineBefore(out, nl)
+        out += withProps
+        out += rest.subList(insertAt, rest.size)
+        trimTrailingBlankLines(out)
+        return OrgDocument(out)
+    }
+
+    /** 取消归档：清掉 ARCHIVE_* 属性，把子树移回文件末尾并恢复层级。 */
+    fun unarchive(target: Headline): OrgDocument {
+        if (!target.properties.containsKey("ARCHIVE_TIME")) {
+            // 兼容旧版软归档属性
+            return removeProperty(target, "ARCHIVED_AT")
+        }
+
+        val nl = newline(lines)
+        val block = lines.subList(target.lineIndex, target.endExclusive).toMutableList()
+        val delta = 1 - target.level
+        val cleaned = block.filterNot { raw ->
+            val key = PROPERTY_RE.find(lineText(raw))?.groupValues?.get(1) ?: return@filterNot false
+            ARCHIVE_PROPERTY_KEYS.any { it.equals(key, ignoreCase = true) }
+        }.map { shiftHeading(it, delta) }
+
+        // 删掉清空后的属性抽屉
+        val propsAt = cleaned.indexOfFirst { lineText(it).trim().equals(":PROPERTIES:", true) }
+        val endAt = cleaned.indexOfFirst { lineText(it).trim().equals(":END:", true) }
+        val finalBlock = if (propsAt >= 0 && endAt == propsAt + 1) {
+            cleaned.filterIndexed { index, _ -> index != propsAt && index != endAt }
+        } else {
+            cleaned
+        }
+
+        val rest = lines.toMutableList()
+        rest.subList(target.lineIndex, target.endExclusive).clear()
+        val out = ArrayList<String>(rest.size + finalBlock.size + 1)
+        out += rest
+        ensureBlankLineBefore(out, nl)
+        out += finalBlock
+        trimTrailingBlankLines(out)
+        return OrgDocument(out)
+    }
+
+    /** 文件级归档指令，让 Emacs 的 org-archive 也归档到同一位置。 */
+    private fun ensureArchiveDirective(): OrgDocument {
+        val out = lines.toMutableList()
+        val nl = newline(out)
+        val line = "#+ARCHIVE: %s::* $ARCHIVE_HEADING$nl"
+        val existing = out.indexOfFirst { lineText(it).trim().startsWith("#+ARCHIVE:", ignoreCase = true) }
+        if (existing >= 0) {
+            if (lineText(out[existing]).trim() != lineText(line).trim()) out[existing] = line
+            return OrgDocument(out)
+        }
+        val firstHeading = out.indexOfFirst { lineText(it).startsWith("* ") }
+        val at = if (firstHeading >= 0) firstHeading else out.size
+        out.add(at, line)
+        return OrgDocument(out)
+    }
+
+    /**
      * 把任务（连同它的子树）移动到目标清单末尾。
      *
      * [destination] 为 null 表示移到文件末尾、变成未归类的顶层任务。
@@ -169,6 +271,7 @@ class OrgDocument private constructor(val lines: List<String>) {
         out += rest.subList(0, insertAt)
         out += rewritten
         out += rest.subList(insertAt, rest.size)
+        trimTrailingBlankLines(out)
         return OrgDocument(out)
     }
 
@@ -488,6 +591,72 @@ class OrgDocument private constructor(val lines: List<String>) {
 private val HEADLINE_RE = Regex("""^(\*+)[ \t]+(.*)$""")
 private val KEYWORD_RE = Regex("""^([A-Z][A-Z0-9]*)(?:[ \t]+|$)""")
 private val PRIORITY_RE = Regex("""^\[#([A-Z])\][ \t]*""")
+private const val ARCHIVE_HEADING = "Archived"
+
+private val ARCHIVE_PROPERTY_KEYS = setOf("ARCHIVE_TIME", "ARCHIVE_FILE", "ARCHIVE_CATEGORY")
+
+private fun shiftHeading(raw: String, delta: Int): String {
+    if (delta == 0) return raw
+    val stars = raw.takeWhile { it == '*' }.length
+    if (stars == 0) return raw
+    return "*".repeat((stars + delta).coerceAtLeast(1)) + raw.substring(stars)
+}
+
+private fun trimTrailingBlankLines(out: MutableList<String>) {
+    while (out.size > 1 && out.last().isBlank()) out.removeAt(out.size - 1)
+}
+
+/** 确保在插入新标题/块之前有一个空行（去掉 split 产生的尾部空串）。 */
+private fun ensureBlankLineBefore(out: MutableList<String>, nl: String) {
+    while (out.isNotEmpty() && out.last().isEmpty()) out.removeAt(out.size - 1)
+    if (out.isNotEmpty() && out.last().isNotBlank()) out += nl
+}
+
+private fun addArchiveProperties(
+    block: MutableList<String>,
+    fileName: String,
+    now: LocalDateTime,
+    nl: String,
+): List<String> {
+    val timestamp = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd EEE HH:mm", Locale.ENGLISH))
+    val category = fileName.substringBeforeLast('.')
+    val entries = listOf(
+        "ARCHIVE_TIME" to timestamp,
+        "ARCHIVE_FILE" to fileName,
+        "ARCHIVE_CATEGORY" to category,
+    )
+
+    val out = ArrayList<String>(block.size + entries.size + 2)
+    out += block.first()
+    val rest = block.drop(1)
+
+    val drawerStart = rest.indexOfFirst { lineText(it).trim().equals(":PROPERTIES:", true) }
+    val drawerEnd = if (drawerStart >= 0) {
+        rest.indexOfFirst { lineText(it).trim().equals(":END:", true) }
+    } else {
+        -1
+    }
+
+    if (drawerStart == 0 && drawerEnd > 0) {
+        val inner = rest.subList(1, drawerEnd)
+        val existing = inner.mapNotNull {
+            PROPERTY_RE.find(lineText(it))?.groupValues?.get(1)?.uppercase(Locale.ENGLISH)
+        }
+        out += rest.subList(0, drawerStart + 1)
+        out += inner
+        val indent = rest[drawerStart].takeWhile { it == ' ' || it == '\t' }
+        entries.filterNot { (key, _) -> key in existing }
+            .forEach { (key, value) -> out += "$indent:$key: $value$nl" }
+        out += rest.subList(drawerEnd, rest.size)
+    } else {
+        out += ":PROPERTIES:$nl"
+        entries.forEach { (key, value) -> out += ":$key: $value$nl" }
+        out += ":END:$nl"
+        out += rest
+    }
+    return out
+}
+
 private val TAGS_RE = Regex("""(?:^|[ \t]+)(:(?:[^\s:]+:)+)$""")
 private val PLANNING_TOKEN_RE = Regex("""(SCHEDULED|DEADLINE|CLOSED):\s*(<[^>]*>|\[[^\]]*\])""")
 private val PLANNING_LINE_RE = Regex("""^\s*(SCHEDULED|DEADLINE|CLOSED):""")

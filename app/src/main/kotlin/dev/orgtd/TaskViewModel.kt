@@ -408,13 +408,13 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
     fun archiveTask(line: Int) = mutate(line) { doc, at ->
         val entry = doc.entryAt(at) ?: error(strings.staleTask)
         val withId = doc.ensureId(entry)
-        val target = withId.entryAt(at) ?: error(strings.staleTask)
-        withId.setProperty(target, "ARCHIVED_AT", dev.orgtd.orgmode.OrgTime.formatClosed(LocalDateTime.now()))
+        val id = withId.entryAt(at)?.id ?: error(strings.staleTask)
+        withId.archive(id, prefs.fileName, LocalDateTime.now())
     }
 
     fun unarchiveTask(line: Int) = mutate(line) { doc, at ->
         val entry = doc.entryAt(at) ?: error(strings.staleTask)
-        doc.removeProperty(entry, "ARCHIVED_AT")
+        doc.unarchive(entry)
     }
 
     /** 推迟：保留原有时刻与重复规则；没有计划行时补一个日期。 */
@@ -456,17 +456,18 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
     fun archiveAllCompleted() = mutate(NO_TARGET) { doc, _ ->
         var working = doc
         while (true) {
-            val target = working.entries.firstOrNull {
-                it.isDone && !it.properties.containsKey("ARCHIVED_AT")
+            val archivedRoots = working.entries.filter {
+                it.properties.containsKey("ARCHIVE_TIME") || it.properties.containsKey("ARCHIVED_AT")
+            }
+            val target = working.entries.firstOrNull { entry ->
+                entry.isDone && archivedRoots.none {
+                    entry.lineIndex >= it.lineIndex && entry.lineIndex < it.endExclusive
+                }
             } ?: break
 
             val withId = working.ensureId(target)
-            val entry = withId.entryById(withId.entryAt(target.lineIndex)?.id ?: break) ?: break
-            working = withId.setProperty(
-                entry,
-                "ARCHIVED_AT",
-                dev.orgtd.orgmode.OrgTime.formatClosed(LocalDateTime.now()),
-            )
+            val id = withId.entryAt(target.lineIndex)?.id ?: break
+            working = withId.archive(id, prefs.fileName, LocalDateTime.now())
         }
         working
     }

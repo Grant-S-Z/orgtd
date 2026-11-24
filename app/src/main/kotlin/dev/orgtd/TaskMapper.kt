@@ -18,6 +18,9 @@ object TaskMapper {
     fun toTasks(doc: OrgDocument): List<TaskUi> {
         val lists = doc.entries.filter { it.isList }
         val projects = doc.entries.filter { it.isProject }
+        val archivedRoots = doc.entries.filter {
+            it.properties.containsKey("ARCHIVE_TIME") || it.properties.containsKey("ARCHIVED_AT")
+        }
 
         return doc.entries.filter { it.isTask }.map { headline ->
             val list = nearestAncestor(lists, headline.lineIndex)
@@ -44,7 +47,9 @@ object TaskMapper {
                 childrenDone = childrenOf(doc, headline).count { it.isDone },
                 reminderAt = reminderAt(headline),
                 body = bodyText(doc, headline),
-                archived = headline.properties.containsKey("ARCHIVED_AT"),
+                archived = archivedRoots.any {
+                    it.lineIndex <= headline.lineIndex && headline.lineIndex < it.endExclusive
+                },
             )
         }
     }
