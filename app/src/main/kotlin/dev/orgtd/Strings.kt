@@ -140,6 +140,24 @@ class AppStrings(private val en: Boolean) {
     val noMatches = s("没有匹配的任务", "No matching tasks")
     val searchPrompt = s("输入关键词开始搜索", "Type to search")
     val searchFieldLabel = s("搜索标题、正文或标签", "Search title, notes or tags")
+    val startFresh = s("直接在手机上新建一个 org 文件", "Start a new org file on this phone")
+    val startFreshHint = s(
+        "文件保存在 App 私有目录，不需要先有坚果云或 Emacs。以后可以再切换到 WebDAV 或本地目录。",
+        "The file is stored in the app's private storage. No Nutstore or Emacs needed; you can switch to WebDAV or a local folder later.",
+    )
+    val appStorage = s("App 内新建", "App storage")
+    val useAppStorage = s("使用 App 内新建的文件", "Use the app's own file")
+    val appStorageHint = s(
+        "文件保存在 App 私有目录，卸载 App 会一起删除。",
+        "The file lives in the app's private storage and is removed when the app is uninstalled.",
+    )
+    val createFileHere = s("在这个目录里新建 gtd.org", "Create gtd.org in this folder")
+    val sampleTask = s("点开我——这是一条示例任务", "Tap me — this is a sample task")
+    val sampleNote = s(
+        "这段是备注正文，会原样写回 org 文件。",
+        "This is the note body; it is written back to the org file as-is.",
+    )
+    val sampleList = s("工作", "Work")
     val noFolderTitle = s("还没有选择同步目录", "No folder selected yet")
     val noFolderHint = s(
         "把坚果云同步到的目录授权给 orgtd，App 只读写其中的 gtd.org",

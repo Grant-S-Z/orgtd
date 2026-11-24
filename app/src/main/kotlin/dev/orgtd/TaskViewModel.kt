@@ -14,6 +14,8 @@ import dev.orgtd.data.StorageMode
 import dev.orgtd.orgmode.DateSpec
 import dev.orgtd.orgmode.OrgDocument
 import dev.orgtd.data.ConflictException
+import dev.orgtd.data.InternalSource
+import dev.orgtd.data.OrgTemplate
 import dev.orgtd.data.OfflineWriteException
 import dev.orgtd.reminder.ReminderScheduler
 import dev.orgtd.sync.SyncScheduler
@@ -168,6 +170,47 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         refresh()
     }
 
+    /** 新手路径：不选目录、不配 WebDAV，直接在 App 私有目录建一个文件开始用。 */
+    fun createInternalFile() = startInternalStorage()
+
+    fun useInternal() = startInternalStorage()
+
+    private fun startInternalStorage() {
+        prefs.mode = StorageMode.INTERNAL
+        val internal = InternalSource(getApplication(), prefs.fileName)
+        if (!internal.exists()) {
+            internal.createIfMissing(OrgTemplate.initial(Strings.resolve(prefs.language)))
+        }
+
+        source = Sources.create(getApplication())
+        lastText = null
+        SyncScheduler.sync(getApplication(), enabled = false)
+        publishSettings()
+        refresh()
+    }
+
+    /** 当前目录/远端没有文件时，直接创建一个。 */
+    fun createFileInCurrentFolder() {
+        val src = source ?: run {
+            _state.update { it.copy(error = strings.fileMissing) }
+            return
+        }
+        viewModelScope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                runCatching {
+                    if (src.read() != null) return@runCatching false
+                    src.write(OrgTemplate.initial(Strings.resolve(prefs.language)), null, null)
+                    true
+                }
+            }
+            outcome.onSuccess { created ->
+                if (created) refresh()
+            }.onFailure { error ->
+                _state.update { it.copy(error = offlineOrMessage(error)) }
+            }
+        }
+    }
+
     fun setTheme(themeId: String) {
         prefs.themeId = themeId
         publishSettings()
@@ -192,6 +235,10 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         val cleaned = name.trim().ifBlank { OrgPrefs.DEFAULT_FILE }
         if (cleaned == prefs.fileName) return
         prefs.fileName = cleaned
+        if (prefs.mode == StorageMode.INTERNAL) {
+            InternalSource(getApplication(), cleaned)
+                .createIfMissing(OrgTemplate.initial(Strings.resolve(prefs.language)))
+        }
         source = Sources.create(getApplication())
         lastText = null
         publishSettings()

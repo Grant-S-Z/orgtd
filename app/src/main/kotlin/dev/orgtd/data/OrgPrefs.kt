@@ -5,7 +5,7 @@ import androidx.core.content.edit
 import dev.orgtd.Language
 import dev.orgtd.UiStyle
 
-enum class StorageMode { LOCAL, WEBDAV }
+enum class StorageMode { INTERNAL, LOCAL, WEBDAV }
 
 enum class DarkMode { SYSTEM, LIGHT, DARK }
 

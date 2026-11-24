@@ -119,6 +119,9 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     onPickFolder = { picker.launch(null) },
+                    onCreateInternalFile = viewModel::createInternalFile,
+                    onCreateFileInFolder = viewModel::createFileInCurrentFolder,
+                    onUseInternal = viewModel::useInternal,
                     onRefresh = viewModel::refresh,
                     onToggle = viewModel::toggle,
                     onAddTask = viewModel::addTask,

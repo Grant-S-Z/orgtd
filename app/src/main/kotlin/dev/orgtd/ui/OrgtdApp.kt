@@ -119,6 +119,9 @@ fun OrgtdApp(
     exactAlarmGranted: Boolean,
     onRequestExactAlarm: () -> Unit,
     onPickFolder: () -> Unit,
+    onCreateInternalFile: () -> Unit,
+    onCreateFileInFolder: () -> Unit,
+    onUseInternal: () -> Unit,
     onRefresh: () -> Unit,
     onToggle: (Int) -> Unit,
     onAddTask: (String, LocalDate?) -> Unit,
@@ -265,9 +268,9 @@ fun OrgtdApp(
             }
 
             when {
-                !state.folderSelected -> FolderPrompt(onPickFolder)
+                !state.folderSelected -> FolderPrompt(onPickFolder, onCreateInternalFile)
                 state.loading -> Loading()
-                state.missingFile -> MissingFile(fileName, onPickFolder)
+                state.missingFile -> MissingFile(fileName, onPickFolder, onCreateFileInFolder)
                 inDetail -> ListTasks(
                     state = state,
                     listLine = detailLine,
@@ -347,6 +350,7 @@ fun OrgtdApp(
             onSetUiStyle = onSetUiStyle,
             onSetRemindDateOnly = onSetRemindDateOnly,
             onSetFileName = onSetFileName,
+            onUseInternal = onUseInternal,
         )
     }
 
@@ -993,7 +997,7 @@ private fun ErrorBar(message: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun FolderPrompt(onPickFolder: () -> Unit) {
+private fun FolderPrompt(onPickFolder: () -> Unit, onCreateInternalFile: () -> Unit) {
     val strings = LocalStrings.current
     Column(
         modifier = Modifier
@@ -1010,12 +1014,24 @@ private fun FolderPrompt(onPickFolder: () -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp, bottom = 20.dp),
         )
-        Button(onClick = onPickFolder) { Text(strings.chooseFolder) }
+        Button(onClick = onCreateInternalFile) { Text(strings.startFresh) }
+        Text(
+            text = strings.startFreshHint,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 12.dp, bottom = 20.dp),
+        )
+        TextButton(onClick = onPickFolder) { Text(strings.chooseFolder) }
     }
 }
 
 @Composable
-private fun MissingFile(fileName: String, onPickFolder: () -> Unit) {
+private fun MissingFile(
+    fileName: String,
+    onPickFolder: () -> Unit,
+    onCreateFile: () -> Unit,
+) {
     val strings = LocalStrings.current
     Column(
         modifier = Modifier
@@ -1032,7 +1048,8 @@ private fun MissingFile(fileName: String, onPickFolder: () -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp, bottom = 20.dp),
         )
-        Button(onClick = onPickFolder) { Text(strings.reselectFolder) }
+        Button(onClick = onCreateFile) { Text(strings.createFileHere) }
+        TextButton(onClick = onPickFolder) { Text(strings.reselectFolder) }
     }
 }
 

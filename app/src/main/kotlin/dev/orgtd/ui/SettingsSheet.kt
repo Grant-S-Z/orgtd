@@ -70,6 +70,7 @@ fun SettingsSheet(
     onSetUiStyle: (UiStyle) -> Unit,
     onSetRemindDateOnly: (Boolean) -> Unit,
     onSetFileName: (String) -> Unit,
+    onUseInternal: () -> Unit,
 ) {
     val strings = LocalStrings.current
     val sheetState = rememberBottomSheetState(
@@ -176,7 +177,15 @@ fun SettingsSheet(
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
             Text(strings.storage, style = MaterialTheme.typography.titleMedium)
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = mode == StorageMode.INTERNAL,
+                    onClick = { mode = StorageMode.INTERNAL },
+                    label = { Text(strings.appStorage) },
+                )
                 FilterChip(
                     selected = mode == StorageMode.LOCAL,
                     onClick = { mode = StorageMode.LOCAL },
@@ -190,6 +199,15 @@ fun SettingsSheet(
             }
 
             when (mode) {
+                StorageMode.INTERNAL -> {
+                    Text(
+                        text = strings.appStorageHint,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(onClick = onUseInternal) { Text(strings.useAppStorage) }
+                }
+
                 StorageMode.LOCAL -> {
                     Text(
                         text = strings.localFolderHint,

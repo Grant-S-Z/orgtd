@@ -79,6 +79,10 @@ HarmonyOS 4.x ships an Android 12 compatibility layer and runs the APK as-is (Ha
 
 The app password is encrypted with the Android Keystore. Each write re-reads the remote file first, so changes made on the other device are preserved.
 
+### Start from scratch
+
+If you do not have an org file yet, the first screen offers **"Start a new org file on this phone"**. The app creates `gtd.org` in its private storage with a small starter template — no folder picker, no Nutstore account, no Emacs required. You can switch to WebDAV or a local folder later in Settings.
+
 ### Local folder
 
 If you would rather not give the app a network password, sync the file to a normal folder with FolderSync, then grant orgtd that folder. The app only reads and writes `gtd.org` inside it.

@@ -52,6 +52,44 @@ class LocalSource(
     }
 }
 
+/** App 私有目录里的文件：不需要任何授权，适合第一次使用、暂时不想接网盘的人。 */
+class InternalSource(
+    private val context: Context,
+    private val fileName: String,
+) : OrgSource {
+
+    override val label: String = "App 存储"
+
+    private val file = File(File(context.filesDir, "orgtd"), fileName)
+
+    override fun read(): Snapshot? {
+        if (!file.isFile) return null
+        return Snapshot(file.readText())
+    }
+
+    override fun write(text: String, expected: Snapshot?, backupOf: String?): Snapshot {
+        if (backupOf != null && backupOf != text) {
+            runCatching {
+                val dir = File(context.filesDir, "backup").apply { mkdirs() }
+                File(dir, fileName).writeText(backupOf)
+            }
+        }
+        file.parentFile?.mkdirs()
+        file.writeText(text)
+        return Snapshot(text)
+    }
+
+    /** 文件不存在时写入初始模板，返回是否新建。 */
+    fun createIfMissing(content: String): Boolean {
+        if (file.isFile) return false
+        file.parentFile?.mkdirs()
+        file.writeText(content)
+        return true
+    }
+
+    fun exists(): Boolean = file.isFile
+}
+
 class RemoteSource(
     private val context: Context,
     private val client: WebDavClient,
@@ -135,6 +173,8 @@ object Sources {
     fun create(context: Context): OrgSource? {
         val prefs = OrgPrefs(context)
         return when (prefs.mode) {
+            StorageMode.INTERNAL -> InternalSource(context, prefs.fileName)
+
             StorageMode.LOCAL -> prefs.treeUri
                 ?.let { runCatching { it.toUri() }.getOrNull() }
                 ?.let { LocalSource(context, it, prefs.fileName) }
