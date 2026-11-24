@@ -34,16 +34,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "KEYSTORE_BASE64 未配置，跳过签名（产物将不可安装）"
-            exit 0
+            echo "::error::缺少 KEYSTORE_BASE64，无法生成可安装的 release 包"
+            exit 1
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > orgtd-release.jks
-          cat > keystore.properties <<EOF
-          storeFile=orgtd-release.jks
-          storePassword=$KEYSTORE_PASSWORD
-          keyAlias=$KEY_ALIAS
-          keyPassword=$KEY_PASSWORD
-          EOF
+          {
+            echo "storeFile=orgtd-release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > keystore.properties
 
       - name: 构建与测试
         run: ./gradlew :orgmode:test :app:testDebugUnitTest :app:assembleRelease --stacktrace
