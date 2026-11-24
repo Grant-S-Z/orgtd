@@ -23,6 +23,7 @@ orgtd is not another task database. It reads and writes your existing `gtd.org` 
 
 - Four views: Today / This week / All / Done, with overdue highlighting and nested subtasks.
 - Create, rename, reschedule (date and time), set priority, delete with undo.
+- Move a task (with its subtasks) to another list or back to Unfiled from the detail sheet.
 - Swipe left to complete, swipe right to postpone by one day; the detail sheet offers 1 / 3 / 7-day postpone.
 - The detail sheet shows the body text under the heading, preserving line breaks.
 - Multi-level headings become subtasks. When every direct subtask is done, the parent task is completed automatically; reopening a subtask reopens the parent.
@@ -30,9 +31,9 @@ orgtd is not another task database. It reads and writes your existing `gtd.org` 
 **Organization**
 
 - Inbox and lists (a top-level org heading is a list; open one to see its tasks).
-- Create, rename, reorder, and soft-delete lists.
+- Create, rename, reorder, and soft-delete lists; each row shows open/done counts.
 - Search covers titles, body text, and tags.
-- Completed tasks can be archived: an `:ARCHIVED_AT:` property hides them from Done; switch to Archived to restore them.
+- Completed tasks can be archived (one by one or all at once): an `:ARCHIVED_AT:` property hides them from Done; switch to Archived to restore them.
 
 **Sync and offline**
 

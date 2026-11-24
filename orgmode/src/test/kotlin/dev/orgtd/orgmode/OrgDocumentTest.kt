@@ -436,6 +436,57 @@ class OrgDocumentTest {
         assertEquals(null, list.keyword)
     }
 
+    // ------------------------------------------------------------ 移动任务
+
+    private val moveFixture = """
+* 清单 A
+** TODO 任务一
+SCHEDULED: <2026-11-25 Wed>
+** TODO 任务二
+* 清单 B
+** TODO 任务三
+"""
+
+    @Test
+    fun `任务可以移动到另一个清单末尾`() {
+        val doc = OrgDocument.parse(moveFixture)
+        val task = doc.entries.first { it.title == "任务一" }
+        val dest = doc.entries.first { it.title == "清单 B" }
+
+        val moved = doc.moveTask(task, dest).serialize()
+        val expected = """
+* 清单 A
+** TODO 任务二
+* 清单 B
+** TODO 任务三
+** TODO 任务一
+SCHEDULED: <2026-11-25 Wed>
+"""
+        assertEquals(expected, moved)
+    }
+
+    @Test
+    fun `任务可以移动到未归类，标题层级自动提升`() {
+        val doc = OrgDocument.parse(moveFixture)
+        val task = doc.entries.first { it.title == "任务一" }
+
+        val moved = doc.moveTask(task, null).serialize()
+        assertTrue(moved.endsWith("* TODO 任务一\nSCHEDULED: <2026-11-25 Wed>\n"))
+        assertTrue(!moved.contains("** TODO 任务一"))
+    }
+
+    @Test
+    fun `移动父任务时子任务层级一起平移`() {
+        val doc = OrgDocument.parse("* 清单 A\n** TODO 父任务\n*** TODO 子任务\n* 清单 B\n")
+        val task = doc.entries.first { it.title == "父任务" }
+        val dest = doc.entries.first { it.title == "清单 B" }
+
+        val moved = doc.moveTask(task, dest).serialize()
+        assertTrue(moved.contains("** TODO 父任务"))
+        assertTrue(moved.contains("*** TODO 子任务"))
+        assertEquals(1, Regex("\\*\\* TODO 父任务").findAll(moved).count())
+    }
+
     private fun lineOf(headline: String): Int {
         val lines = source.split("\n")
         val index = lines.indexOfFirst { it == headline }

@@ -86,6 +86,44 @@ class OrgDocument private constructor(val lines: List<String>) {
         return doc
     }
 
+    /**
+     * 把任务（连同它的子树）移动到目标清单末尾。
+     *
+     * [destination] 为 null 表示移到文件末尾、变成未归类的顶层任务。
+     * 子标题层级会一起平移，保证移动后仍然是目标清单的下级。
+     */
+    fun moveTask(target: Headline, destination: Headline?): OrgDocument {
+        if (destination != null && !destination.isList) return this
+        if (destination?.lineIndex == target.lineIndex) return this
+
+        val block = lines.subList(target.lineIndex, target.endExclusive).toMutableList()
+        val newLevel = (destination?.level ?: 0) + 1
+        val delta = newLevel - target.level
+        val rewritten = block.map { raw ->
+            val stars = raw.takeWhile { it == '*' }.length
+            if (stars > 0 && delta != 0) {
+                "*".repeat((stars + delta).coerceAtLeast(1)) + raw.substring(stars)
+            } else {
+                raw
+            }
+        }
+
+        val rest = lines.toMutableList()
+        rest.subList(target.lineIndex, target.endExclusive).clear()
+
+        val insertAt = when {
+            destination == null -> rest.size
+            target.lineIndex < destination.endExclusive -> destination.endExclusive - block.size
+            else -> destination.endExclusive
+        }.coerceIn(0, rest.size)
+
+        val out = ArrayList<String>(rest.size + block.size + 1)
+        out += rest.subList(0, insertAt)
+        out += rewritten
+        out += rest.subList(insertAt, rest.size)
+        return OrgDocument(out)
+    }
+
     /** 设置 / 清除 SCHEDULED。传 null 表示删除。 */
     fun setScheduled(target: Headline, spec: DateSpec?): OrgDocument {
         val out = lines.toMutableList()

@@ -37,7 +37,10 @@ object TaskMapper {
             val open = tasks.count {
                 !it.done && it.line > list.lineIndex && it.line < list.endExclusive
             }
-            ListUi(list.lineIndex, list.title, open)
+            val done = tasks.count {
+                it.done && it.line > list.lineIndex && it.line < list.endExclusive
+            }
+            ListUi(list.lineIndex, list.title, open, done)
         }
 
     private fun childrenOf(doc: OrgDocument, parent: Headline): List<Headline> =

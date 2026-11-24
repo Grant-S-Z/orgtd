@@ -35,6 +35,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.orgtd.ListUi
 import dev.orgtd.TaskUi
 import java.time.LocalDate
 import java.time.LocalTime
@@ -97,6 +98,8 @@ fun TaskSheet(
     onPostpone: (Long) -> Unit,
     onArchive: () -> Unit,
     onUnarchive: () -> Unit,
+    lists: List<ListUi>,
+    onMoveTo: (Int?) -> Unit,
 ) {
     val strings = LocalStrings.current
     val sheetState = rememberBottomSheetState(
@@ -189,6 +192,30 @@ fun TaskSheet(
                         onClick = { priority = value },
                         label = { Text(label) },
                     )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(strings.moveToList, style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.weight(1f))
+                Box {
+                    var moveMenu by rememberSaveable { mutableStateOf(false) }
+                    TextButton(onClick = { moveMenu = true }) {
+                        Text(task.listName ?: strings.ungrouped)
+                    }
+                    DropdownMenu(expanded = moveMenu, onDismissRequest = { moveMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(strings.ungrouped) },
+                            onClick = { moveMenu = false; onMoveTo(null) },
+                        )
+                        lists.forEach { list ->
+                            DropdownMenuItem(
+                                text = { Text(list.name) },
+                                onClick = { moveMenu = false; onMoveTo(list.line) },
+                            )
+                        }
+                    }
                 }
             }
 

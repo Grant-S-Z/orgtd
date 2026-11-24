@@ -26,6 +26,12 @@ class AppStrings(private val en: Boolean) {
     val completed = s("已完成", "Done")
     val inbox = s("Inbox", "Inbox")
     val lists = s("清单", "Lists")
+    fun listProgress(open: Int, done: Int) =
+        s("$open 待办 · $done 完成", "$open open · $done done")
+    val archiveAll = s("归档全部已完成", "Archive all completed")
+    fun archiveAllConfirm(count: Int) =
+        s("归档全部 $count 个已完成任务？归档后可在「已归档」里取消归档。", "Archive all $count completed tasks? You can restore them from Archived later.")
+    val moveToList = s("移动到清单", "Move to list")
     val search = s("搜索", "Search")
 
     // 通用动作

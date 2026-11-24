@@ -50,7 +50,7 @@ data class TaskUi(
     val archived: Boolean = false,
 )
 
-data class ListUi(val line: Int, val name: String, val open: Int)
+data class ListUi(val line: Int, val name: String, val open: Int, val done: Int)
 
 /** 搜索匹配标题、正文与标签。 */
 fun TaskUi.matches(query: String): Boolean =
@@ -407,6 +407,32 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
             active = old?.active ?: true,
         )
         withId.setScheduled(target, spec)
+    }
+
+    /** 把任务移到另一个清单；[listLine] 为 null 表示移到「未归类」。 */
+    fun moveTask(line: Int, listLine: Int?) = mutate(line) { doc, at ->
+        val entry = doc.entryAt(at) ?: error(strings.staleTask)
+        val destination = listLine?.let { lineNo -> doc.entryAt(lineNo)?.takeIf { it.isList } }
+        doc.moveTask(entry, destination)
+    }
+
+    /** 一次性归档所有已完成、且尚未归档的任务。 */
+    fun archiveAllCompleted() = mutate(NO_TARGET) { doc, _ ->
+        var working = doc
+        while (true) {
+            val target = working.entries.firstOrNull {
+                it.isDone && !it.properties.containsKey("ARCHIVED_AT")
+            } ?: break
+
+            val withId = working.ensureId(target)
+            val entry = withId.entryById(withId.entryAt(target.lineIndex)?.id ?: break) ?: break
+            working = withId.setProperty(
+                entry,
+                "ARCHIVED_AT",
+                dev.orgtd.orgmode.OrgTime.formatClosed(LocalDateTime.now()),
+            )
+        }
+        working
     }
 
     fun deleteTask(line: Int) = mutate(line) { doc, at ->

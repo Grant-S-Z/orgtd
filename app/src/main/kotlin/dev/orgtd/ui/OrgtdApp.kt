@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -104,6 +105,11 @@ private fun Tab.label(strings: AppStrings): String = when (this) {
 
 private enum class Range { Today, Week, All, Completed }
 
+/** 各页面统一的排序：未完成在前，然后按日期、时刻，没有日期的排最后。 */
+private val TASK_ORDER: Comparator<TaskUi> = compareBy<TaskUi> { it.done }
+    .thenBy { it.date ?: LocalDate.MAX }
+    .thenBy { it.time ?: LocalTime.MAX }
+
 private fun Range.label(strings: AppStrings): String = when (this) {
     Range.Today -> strings.today
     Range.Week -> strings.week
@@ -131,6 +137,8 @@ fun OrgtdApp(
     onPostponeTask: (Int, Long) -> Unit,
     onArchiveTask: (Int) -> Unit,
     onUnarchiveTask: (Int) -> Unit,
+    onMoveTask: (Int, Int?) -> Unit,
+    onArchiveAllCompleted: () -> Unit,
     onDeleteTask: (Int) -> Unit,
     onUndoDelete: () -> Unit,
     onAddList: (String) -> Unit,
@@ -288,6 +296,7 @@ fun OrgtdApp(
                     onToggle = onToggle,
                     onOpen = { editingLine = it },
                     onPostpone = { onPostponeTask(it, 1) },
+                    onArchiveAllCompleted = onArchiveAllCompleted,
                 )
 
                 tab == Tab.Inbox -> InboxTab(
@@ -419,6 +428,11 @@ fun OrgtdApp(
                 onUnarchiveTask(editing.line)
                 editingLine = -1
             },
+            lists = state.lists,
+            onMoveTo = { listLine ->
+                onMoveTask(editing.line, listLine)
+                editingLine = -1
+            },
         )
     }
 }
@@ -433,23 +447,32 @@ private fun TodayTab(
     onToggle: (Int) -> Unit,
     onOpen: (Int) -> Unit,
     onPostpone: (Int) -> Unit,
+    onArchiveAllCompleted: () -> Unit,
 ) {
     val strings = LocalStrings.current
     val today = LocalDate.now()
     RangeSelector(rangeIndex, onRangeChange)
 
     when (Range.entries[rangeIndex]) {
-        Range.Today -> TaskList(state.today, today, onToggle, onOpen, onPostpone, strings.noTasksToday)
-        Range.Week -> TaskList(state.week, today, onToggle, onOpen, onPostpone, strings.noTasksWeek)
+        Range.Today -> GroupedTaskList(state.today, today, onToggle, onOpen, onPostpone, strings.noTasksToday)
+        Range.Week -> GroupedTaskList(state.week, today, onToggle, onOpen, onPostpone, strings.noTasksWeek)
         Range.Completed -> {
             var showArchived by rememberSaveable { mutableStateOf(false) }
+            var confirmArchiveAll by remember { mutableStateOf(false) }
             Column(Modifier.fillMaxSize()) {
-                Row(Modifier.padding(horizontal = 16.dp)) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     FilterChip(
                         selected = showArchived,
                         onClick = { showArchived = !showArchived },
                         label = { Text(strings.archived) },
                     )
+                    Spacer(Modifier.weight(1f))
+                    if (!showArchived && state.completed.isNotEmpty()) {
+                        TextButton(onClick = { confirmArchiveAll = true }) { Text(strings.archiveAll) }
+                    }
                 }
                 Box(Modifier.weight(1f)) {
                     TaskList(
@@ -462,22 +485,34 @@ private fun TodayTab(
                     )
                 }
             }
-        }
-        Range.All -> {
-            val groups = state.tasks.filter { !it.done }.groupBy { it.listName ?: strings.ungrouped }
-            if (groups.isEmpty()) {
-                EmptyHint(strings.noOpenTasks)
-            } else {
-                LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
-                    groups.forEach { (name, tasks) ->
-                        item(key = "header-$name") { SectionHeader(name) }
-                        items(tasks, key = { it.line }) { task ->
-                            SwipeableTaskRow(task, today, onToggle, onOpen, onPostpone)
-                        }
-                    }
-                }
+
+            if (confirmArchiveAll) {
+                AlertDialog(
+                    onDismissRequest = { confirmArchiveAll = false },
+                    title = { Text(strings.archiveAll) },
+                    text = { Text(strings.archiveAllConfirm(state.completed.size)) },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                confirmArchiveAll = false
+                                onArchiveAllCompleted()
+                            },
+                        ) { Text(strings.archiveAll) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { confirmArchiveAll = false }) { Text(strings.cancel) }
+                    },
+                )
             }
         }
+        Range.All -> GroupedTaskList(
+            tasks = state.tasks.filter { !it.done },
+            today = today,
+            onToggle = onToggle,
+            onOpen = onOpen,
+            onPostpone = onPostpone,
+            emptyText = strings.noOpenTasks,
+        )
     }
 }
 
@@ -498,7 +533,7 @@ private fun ListTasks(
 
     val tasks = state.tasks
         .filter { if (listLine == UNGROUPED_LIST) it.listName == null else it.listName == name }
-        .sortedWith(compareBy<TaskUi> { it.done }.thenBy { it.date ?: LocalDate.MAX })
+        .sortedWith(TASK_ORDER)
 
     if (tasks.isEmpty()) {
         EmptyHint(strings.listEmpty)
@@ -526,6 +561,7 @@ private fun InboxTab(
 private class ListRowModel(
     val name: String,
     val open: Int,
+    val done: Int,
     val actions: ListActions?,
     val onClick: () -> Unit,
 )
@@ -552,6 +588,7 @@ private fun ListsTab(
                 ListRowModel(
                     name = strings.ungrouped,
                     open = state.ungrouped.count { !it.done },
+                    done = state.ungrouped.count { it.done },
                     actions = null,
                     onClick = onOpenUngrouped,
                 ),
@@ -562,6 +599,7 @@ private fun ListsTab(
                 ListRowModel(
                     name = list.name,
                     open = list.open,
+                    done = list.done,
                     actions = ListActions(
                         canUp = index > 0,
                         canDown = index < lists.lastIndex,
@@ -581,7 +619,7 @@ private fun ListsTab(
             item {
                 IosGroup {
                     rows.forEachIndexed { index, row ->
-                        ListRow(row.name, row.open, row.actions, row.onClick)
+                        ListRow(row.name, row.open, row.done, row.actions, row.onClick)
                         if (index != rows.lastIndex) IosDivider()
                     }
                 }
@@ -593,7 +631,7 @@ private fun ListsTab(
     LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
         rows.forEachIndexed { index, row ->
             item(key = if (row.actions == null) "ungrouped" else "list-$index") {
-                ListRow(row.name, row.open, row.actions, row.onClick)
+                ListRow(row.name, row.open, row.done, row.actions, row.onClick)
             }
         }
     }
@@ -653,6 +691,32 @@ private fun RangeSelector(selected: Int, onSelect: (Int) -> Unit) {
                 onClick = { onSelect(index) },
                 label = { Text(range.label(strings)) },
             )
+        }
+    }
+}
+
+@Composable
+private fun GroupedTaskList(
+    tasks: List<TaskUi>,
+    today: LocalDate,
+    onToggle: (Int) -> Unit,
+    onOpen: (Int) -> Unit,
+    onPostpone: (Int) -> Unit,
+    emptyText: String,
+) {
+    val strings = LocalStrings.current
+    if (tasks.isEmpty()) {
+        EmptyHint(emptyText)
+        return
+    }
+
+    val groups = tasks.groupBy { it.listName ?: strings.ungrouped }
+    LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+        groups.forEach { (name, groupTasks) ->
+            item(key = "header-$name") { SectionHeader(name) }
+            items(groupTasks.sortedWith(TASK_ORDER), key = { it.line }) { task ->
+                SwipeableTaskRow(task, today, onToggle, onOpen, onPostpone)
+            }
         }
     }
 }
@@ -876,6 +940,7 @@ private class ListActions(
 private fun ListRow(
     name: String,
     open: Int,
+    done: Int,
     actions: ListActions?,
     onClick: (() -> Unit)? = null,
 ) {
@@ -891,8 +956,8 @@ private fun ListRow(
     ) {
         Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         Text(
-            text = open.toString(),
-            style = MaterialTheme.typography.bodyMedium,
+            text = if (done > 0) strings.listProgress(open, done) else open.toString(),
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (actions != null) {
