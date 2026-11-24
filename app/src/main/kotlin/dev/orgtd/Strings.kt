@@ -80,6 +80,15 @@ class AppStrings(private val en: Boolean) {
     fun newVersion(version: String) = s("发现新版本 $version", "Version $version is available")
     val openDownload = s("打开下载页", "Open download page")
     val checkFailed = s("检查更新失败", "Update check failed")
+    val installNow = s("下载并安装", "Download and install")
+    val downloadingFile = s("下载中", "Downloading")
+    val downloadFailed = s("下载失败", "Download failed")
+    val installHint = s("安装包会从 GitHub Releases 下载，安装时系统会再确认一次。", "The APK is fetched from GitHub Releases; the system will ask you to confirm the install.")
+    val allowInstallHint = s(
+        "需要在系统设置里允许 orgtd 安装应用，允许后回来再点一次「下载并安装」。",
+        "Allow orgtd to install apps in system settings, then come back and tap Download and install again.",
+    )
+    fun fileSizeMb(mb: String) = s("$mb MB", "$mb MB")
     val priorityNone = s("无", "None")
     val priorityHigh = s("高", "High")
     val priorityMedium = s("中", "Medium")

@@ -51,7 +51,7 @@ orgtd is not another task database. It reads and writes your existing `gtd.org` 
 - Chinese / English, following the system language or set per app; switches take effect immediately.
 - Two visual styles: Apple (default, iOS-like) and Material 3 (five colour schemes plus dynamic colour).
 - Light / dark / follow-system appearance.
-- Settings → About can check GitHub Releases for a newer version.
+- Settings → About checks GitHub Releases and can download and install an update in place (Android asks once for permission to install apps from orgtd, then shows its own install confirmation).
 
 ## Install
 

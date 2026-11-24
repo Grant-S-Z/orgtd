@@ -41,6 +41,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import java.io.File
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.orgtd.Language
@@ -54,6 +55,7 @@ import dev.orgtd.data.FileExporter
 import dev.orgtd.ui.theme.displayName
 import dev.orgtd.update.UpdateChecker
 import dev.orgtd.update.UpdateInfo
+import dev.orgtd.update.UpdateInstaller
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -87,6 +89,10 @@ fun SettingsSheet(
     var checkMessage by remember { mutableStateOf<String?>(null) }
     var available by remember { mutableStateOf<UpdateInfo?>(null) }
     var exportMessage by remember { mutableStateOf<String?>(null) }
+    var downloading by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableStateOf(0) }
+    var updateMessage by remember { mutableStateOf<String?>(null) }
+    var downloadedFile by remember { mutableStateOf<File?>(null) }
 
     var mode by rememberSaveable { mutableStateOf(settings.mode) }
     var fileName by rememberSaveable(settings.fileNameValue) { mutableStateOf(settings.fileNameValue) }
@@ -358,21 +364,96 @@ fun SettingsSheet(
 
     available?.let { info ->
         AlertDialog(
-            onDismissRequest = { available = null },
+            onDismissRequest = {
+                if (!downloading) {
+                    available = null
+                    downloadedFile = null
+                    updateMessage = null
+                }
+            },
             title = { Text(strings.newVersion(info.latestVersion)) },
-            text = { Text(info.releaseUrl) },
+            text = {
+                Column {
+                    if (info.apkSize > 0) {
+                        Text(
+                            text = strings.fileSizeMb(
+                                String.format(java.util.Locale.US, "%.1f", info.apkSize / 1024.0 / 1024.0),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = when {
+                            downloading -> "${strings.downloadingFile} $downloadProgress%"
+                            updateMessage != null -> updateMessage!!
+                            else -> strings.installHint
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    TextButton(
+                        onClick = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.releaseUrl)))
+                            }
+                        },
+                    ) { Text(strings.openDownload) }
+                }
+            },
             confirmButton = {
                 TextButton(
+                    enabled = !downloading,
                     onClick = {
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.releaseUrl)))
+                        scope.launch {
+                            val existing = downloadedFile
+                            when {
+                                existing != null && UpdateInstaller.canInstall(context) -> {
+                                    UpdateInstaller.install(context, existing)
+                                    available = null
+                                    downloadedFile = null
+                                    updateMessage = null
+                                }
+
+                                !UpdateInstaller.canInstall(context) -> {
+                                    updateMessage = strings.allowInstallHint
+                                    UpdateInstaller.openInstallPermission(context)
+                                }
+
+                                else -> {
+                                    downloading = true
+                                    downloadProgress = 0
+                                    updateMessage = null
+                                    val result = runCatching {
+                                        UpdateInstaller.download(context, info) { progress ->
+                                            downloadProgress = progress
+                                        }
+                                    }
+                                    downloading = false
+                                    result.onSuccess { file ->
+                                        downloadedFile = file
+                                        UpdateInstaller.install(context, file)
+                                        available = null
+                                        updateMessage = null
+                                    }.onFailure { error ->
+                                        updateMessage = "${strings.downloadFailed}: ${error.message}"
+                                    }
+                                }
+                            }
                         }
-                        available = null
                     },
-                ) { Text(strings.openDownload) }
+                ) {
+                    Text(if (downloading) "${strings.downloadingFile} $downloadProgress%" else strings.installNow)
+                }
             },
             dismissButton = {
-                TextButton(onClick = { available = null }) { Text(strings.cancel) }
+                TextButton(
+                    enabled = !downloading,
+                    onClick = {
+                        available = null
+                        downloadedFile = null
+                        updateMessage = null
+                    },
+                ) { Text(strings.cancel) }
             },
         )
     }

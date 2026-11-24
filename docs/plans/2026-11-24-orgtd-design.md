@@ -515,3 +515,11 @@ material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案�
 - 用于新手把 App 内文件发到坚果云或文件管理器，也用于换设备前的备份；不改变任何存储模式、不写远端。
 - 新增 `FileExporter`、`file_paths.xml` 与 manifest 的 `FileProvider` 声明；分享的是缓存副本，导出内容与当前文件一致。
 - 验证：模拟器上点「分享 org 文件」→ 系统分享面板显示「Sharing 1 file / gtd.org」及应用列表。
+
+## 33. 应用内更新（2026-11-25）
+
+- `UpdateChecker` 现在同时解析 release 的 APK 资产：下载地址、大小、`digest`（`sha256:...`）。
+- `UpdateInstaller`：流式下载到 `cacheDir/update/`（带进度），下载完校验 SHA-256，再通过 `FileProvider` + `ACTION_VIEW`（`application/vnd.android.package-archive`）交给系统安装器。
+- 权限：manifest 增加 `REQUEST_INSTALL_PACKAGES`；若用户未允许「安装未知应用」，先跳 `ACTION_MANAGE_UNKNOWN_APP_SOURCES`，允许后回来再点一次即可。带日期的旧下载文件会复用，不重复下载。
+- 为什么不能完全静默：Android 只允许系统安装器确认安装（Play 的 in-app update API 仅适用于 Play 分发，本项目走 GitHub）。安装确认与签名校验都由系统完成；签名不一致会直接安装失败。
+- 验证：用 0.1.9（release 签名）装到模拟器，检查更新 → 下载（1.8 MB，显示百分比）→ SHA-256 校验通过 → 系统「Do you want to update this app?」→ Update → 版本变为 versionCode 2 / 0.2.0。

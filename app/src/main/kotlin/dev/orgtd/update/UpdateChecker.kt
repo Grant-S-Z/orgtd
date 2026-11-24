@@ -7,7 +7,13 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 
-data class UpdateInfo(val latestVersion: String, val releaseUrl: String)
+data class UpdateInfo(
+    val latestVersion: String,
+    val releaseUrl: String,
+    val apkUrl: String? = null,
+    val apkSize: Long = 0,
+    val sha256: String? = null,
+)
 
 /**
  * 通过 GitHub Releases 检查新版本。
@@ -38,7 +44,26 @@ object UpdateChecker {
             val json = JSONObject(response.body?.string().orEmpty())
             val version = json.optString("tag_name").removePrefix("v").removePrefix("V")
             if (version.isBlank()) throw IOException("empty tag_name")
-            UpdateInfo(version, json.optString("html_url"))
+
+            val assets = json.optJSONArray("assets")
+            var apkUrl: String? = null
+            var apkSize = 0L
+            var sha256: String? = null
+            if (assets != null) {
+                for (i in 0 until assets.length()) {
+                    val asset = assets.optJSONObject(i) ?: continue
+                    val name = asset.optString("name")
+                    if (!name.endsWith(".apk", ignoreCase = true)) continue
+                    apkUrl = asset.optString("browser_download_url")
+                    apkSize = asset.optLong("size")
+                    sha256 = asset.optString("digest")
+                        .removePrefix("sha256:")
+                        .ifBlank { null }
+                    break
+                }
+            }
+
+            UpdateInfo(version, json.optString("html_url"), apkUrl, apkSize, sha256)
         }
     }
 
