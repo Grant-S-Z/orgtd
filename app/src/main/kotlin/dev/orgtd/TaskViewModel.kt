@@ -16,6 +16,7 @@ import dev.orgtd.orgmode.OrgDocument
 import dev.orgtd.data.ConflictException
 import dev.orgtd.data.OfflineWriteException
 import dev.orgtd.reminder.ReminderScheduler
+import dev.orgtd.sync.SyncScheduler
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -148,6 +149,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         prefs.mode = StorageMode.LOCAL
         source = Sources.create(getApplication())
         lastText = null
+        SyncScheduler.sync(getApplication(), enabled = false)
         publishSettings()
         refresh()
     }
@@ -160,6 +162,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
 
         source = Sources.create(getApplication())
         lastText = null
+        SyncScheduler.sync(getApplication(), enabled = true)
         publishSettings()
         refresh()
     }
@@ -208,6 +211,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         prefs.mode = StorageMode.LOCAL
         source = Sources.create(getApplication())
         lastText = null
+        SyncScheduler.sync(getApplication(), enabled = false)
         publishSettings()
         refresh()
     }

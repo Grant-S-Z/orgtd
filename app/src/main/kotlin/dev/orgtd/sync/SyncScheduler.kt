@@ -8,13 +8,24 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 
-/** 后台周期性拉取一次 org 文件并重排闹钟。系统最小周期 15 分钟。 */
+/**
+ * 后台周期性拉取一次远端 org 文件并重排闹钟。
+ *
+ * 只有 WebDAV 模式需要：本地目录模式没有可拉取的内容，读本地文件由前台刷新完成，
+ * 白白定时唤醒没有意义。
+ */
 object SyncScheduler {
 
     private const val WORK_NAME = "orgtd-background-sync"
     private const val INTERVAL_MINUTES = 15L
 
-    fun ensureScheduled(context: Context) {
+    fun sync(context: Context, enabled: Boolean) {
+        val manager = WorkManager.getInstance(context)
+        if (!enabled) {
+            manager.cancelUniqueWork(WORK_NAME)
+            return
+        }
+
         val request = PeriodicWorkRequestBuilder<SyncWorker>(INTERVAL_MINUTES, TimeUnit.MINUTES)
             .setConstraints(
                 Constraints.Builder()
@@ -23,7 +34,7 @@ object SyncScheduler {
             )
             .build()
 
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        manager.enqueueUniquePeriodicWork(
             WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             request,

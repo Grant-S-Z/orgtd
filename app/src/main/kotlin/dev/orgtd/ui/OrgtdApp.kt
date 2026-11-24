@@ -616,7 +616,7 @@ private fun SearchTab(
         if (query.isBlank()) {
             EmptyHint(strings.searchPrompt)
         } else {
-            val hits = state.tasks.filter { it.matches(query) }
+            val hits = state.tasks.filter { it.matches(query) && !it.archived }
             TaskList(hits, LocalDate.now(), onToggle, onOpen, onPostpone, strings.noMatches)
         }
     }
