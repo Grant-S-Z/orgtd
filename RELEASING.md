@@ -43,8 +43,8 @@ adb install app/build/outputs/apk/release/app-release.apk
 ## 版本号
 
 - `versionCode`：每次发布 +1
-- `versionName`：语义化版本，当前 `0.2.1`
-- 打 tag：`git tag v0.2.1 && git push --tags`
+- `versionName`：语义化版本，当前 `0.2.2`
+- 打 tag：`git tag v0.2.2 && git push --tags`
 
 ## GitHub Actions 发布
 
