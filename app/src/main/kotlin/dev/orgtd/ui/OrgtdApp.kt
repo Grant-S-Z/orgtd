@@ -134,8 +134,8 @@ fun OrgtdApp(
     onUseInternal: () -> Unit,
     onRefresh: () -> Unit,
     onToggle: (Int) -> Unit,
-    onAddTask: (String, LocalDate?) -> Unit,
-    onAddTaskToList: (String, LocalDate?, Int) -> Unit,
+    onAddTask: (String, LocalDate?, LocalTime?) -> Unit,
+    onAddTaskToList: (String, LocalDate?, LocalTime?, Int) -> Unit,
     onUpdateTask: (Int, String, LocalDate?, LocalTime?, Char?) -> Unit,
     onPostponeTask: (Int, Long) -> Unit,
     onArchiveTask: (Int) -> Unit,
@@ -340,12 +340,12 @@ fun OrgtdApp(
     if (showAdd) {
         AddTaskDialog(
             onDismiss = { showAdd = false },
-            onConfirm = { title, date ->
+            onConfirm = { title, date, time ->
                 val target = addScope
                 if (target == UNSCOPED) {
-                    onAddTask(title, date)
+                    onAddTask(title, date, time)
                 } else {
-                    onAddTaskToList(title, date, target)
+                    onAddTaskToList(title, date, time, target)
                 }
                 addScope = UNSCOPED
                 showAdd = false

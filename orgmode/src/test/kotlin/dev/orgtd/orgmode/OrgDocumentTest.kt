@@ -161,6 +161,18 @@ class OrgDocumentTest {
     }
 
     @Test
+    fun `新建带日期和时刻的任务`() {
+        val updated = document.appendTask(
+            "开会",
+            "id-time",
+            scheduled = LocalDate.of(2026, 11, 26),
+            time = LocalTime.of(9, 30),
+        )
+        assertTrue(updated.serialize().contains("SCHEDULED: <2026-11-26 Thu 09:30>"))
+        assertEquals(LocalTime.of(9, 30), updated.entries.last().scheduled?.time)
+    }
+
+    @Test
     fun `删除条目只影响该条目`() {
         val target = document.entryAt(lineOf("* TODO Exercise"))!!
         val updated = document.delete(target)

@@ -356,19 +356,19 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun addTask(title: String, date: LocalDate?) {
+    fun addTask(title: String, date: LocalDate?, time: LocalTime? = null) {
         if (title.isBlank()) return
         val id = UUID.randomUUID().toString()
-        mutate(NO_TARGET) { doc, _ -> doc.appendTask(title.trim(), id, date) }
+        mutate(NO_TARGET) { doc, _ -> doc.appendTask(title.trim(), id, date, time) }
     }
 
     /** 在指定清单下新建任务；[listLine] 为负数表示未归类（追加到文件末尾）。 */
-    fun addTaskToList(title: String, date: LocalDate?, listLine: Int) {
+    fun addTaskToList(title: String, date: LocalDate?, time: LocalTime?, listLine: Int) {
         if (title.isBlank()) return
         val id = UUID.randomUUID().toString()
         mutate(listLine) { doc, at ->
             val parent = doc.entryAt(at)?.takeIf { it.keyword == null }
-            doc.appendTask(title.trim(), id, date, parent)
+            doc.appendTask(title.trim(), id, date, time, parent)
         }
     }
 

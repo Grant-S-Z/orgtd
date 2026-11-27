@@ -408,6 +408,7 @@ class OrgDocument private constructor(val lines: List<String>) {
         title: String,
         id: String,
         scheduled: LocalDate? = null,
+        time: LocalTime? = null,
         list: Headline? = null,
     ): OrgDocument {
         val out = lines.toMutableList()
@@ -424,7 +425,7 @@ class OrgDocument private constructor(val lines: List<String>) {
         block += "  :ID: $id$nl"
         block += "  :END:$nl"
         if (scheduled != null) {
-            block += "SCHEDULED: ${OrgTime.formatSpec(DateSpec(scheduled))}$nl"
+            block += "SCHEDULED: ${OrgTime.formatSpec(DateSpec(scheduled, time))}$nl"
         }
         out.addAll(insertAt, block)
         return OrgDocument(out)

@@ -22,7 +22,7 @@ orgtd is not another task database. It reads and writes your existing `gtd.org` 
 **Tasks**
 
 - Four views: Today / This week / All / Done, with overdue highlighting and nested subtasks.
-- Create, rename, reschedule (date and time), set priority, delete with undo.
+- Create tasks with any date and an optional time (date and time pickers in the add dialog), rename, reschedule, set priority, delete with undo.
 - Move a task (with its subtasks) to another list or back to Unfiled from the detail sheet.
 - Swipe left to complete, swipe right to postpone by one day; the detail sheet offers 1 / 3 / 7-day postpone.
 - The detail sheet shows the body text under the heading, preserving line breaks.

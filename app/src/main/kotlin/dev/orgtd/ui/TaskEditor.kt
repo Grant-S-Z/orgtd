@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.AlertDialog
@@ -18,6 +19,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Button
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -37,17 +41,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.orgtd.TaskUi
 import java.time.LocalDate
+import java.time.Instant
 import java.time.LocalTime
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTaskDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String, LocalDate?) -> Unit,
+    onConfirm: (String, LocalDate?, LocalTime?) -> Unit,
 ) {
     val strings = LocalStrings.current
     var title by rememberSaveable { mutableStateOf("") }
-    var choice by rememberSaveable { mutableIntStateOf(-1) }
+    var dateIso by rememberSaveable { mutableStateOf<String?>(null) }
+    var timeIso by rememberSaveable { mutableStateOf<String?>(null) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showTimePicker by rememberSaveable { mutableStateOf(false) }
+    val date = dateIso?.let(LocalDate::parse)
+    val time = timeIso?.let(LocalTime::parse)
+    val today = LocalDate.now()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -61,30 +74,113 @@ fun AddTaskDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+
                 Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(strings.noDate, strings.dateToday, strings.dateTomorrow).forEachIndexed { index, label ->
-                        FilterChip(
-                            selected = choice == index - 1,
-                            onClick = { choice = index - 1 },
-                            label = { Text(label) },
-                        )
+                Text(strings.dateLabel, style = MaterialTheme.typography.labelLarge)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(top = 4.dp),
+                ) {
+                    FilterChip(
+                        selected = date == null,
+                        onClick = { dateIso = null },
+                        label = { Text(strings.noDate) },
+                    )
+                    FilterChip(
+                        selected = date == today,
+                        onClick = { dateIso = today.toString() },
+                        label = { Text(strings.dateToday) },
+                    )
+                    FilterChip(
+                        selected = date == today.plusDays(1),
+                        onClick = { dateIso = today.plusDays(1).toString() },
+                        label = { Text(strings.dateTomorrow) },
+                    )
+                    TextButton(onClick = { showDatePicker = true }) { Text(strings.chooseDate) }
+                }
+
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(strings.timeLabel, style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = time?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: strings.timeNotSet,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (time == null) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                    )
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = { showTimePicker = true }) { Text(strings.setTime) }
+                    if (time != null) {
+                        TextButton(onClick = { timeIso = null }) { Text(strings.clearTime) }
                     }
                 }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    if (title.isNotBlank()) onConfirm(title.trim(), dateFor(choice))
-                },
                 enabled = title.isNotBlank(),
+                onClick = { onConfirm(title.trim(), date, time) },
             ) { Text(strings.add) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(strings.cancel) }
         },
     )
+
+    if (showDatePicker) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = date?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        state.selectedDateMillis?.let { millis ->
+                            dateIso = Instant.ofEpochMilli(millis)
+                                .atZone(ZoneOffset.UTC)
+                                .toLocalDate()
+                                .toString()
+                        }
+                        showDatePicker = false
+                    },
+                ) { Text(strings.confirm) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text(strings.cancel) }
+            },
+        ) {
+            DatePicker(state = state)
+        }
+    }
+
+    if (showTimePicker) {
+        val pickerState = rememberTimePickerState(
+            initialHour = time?.hour ?: 9,
+            initialMinute = time?.minute ?: 0,
+            is24Hour = true,
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        timeIso = String.format("%02d:%02d", pickerState.hour, pickerState.minute)
+                        showTimePicker = false
+                    },
+                ) { Text(strings.confirm) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text(strings.cancel) }
+            },
+            text = { TimePicker(state = pickerState) },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

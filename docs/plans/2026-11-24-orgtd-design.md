@@ -584,3 +584,9 @@ material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案�
 1. App 归档 `任务一` 后，文件出现 `#+ARCHIVE`、`* Archived` 与 `ARCHIVE_*` 属性；
 2. 把文件拷到 Emacs 执行 `org-archive-subtree`，Emacs 识别该指令并把另一个子树归档到同一个 `* Archived` 下；
 3. App 能识别 Emacs 写入的 `ARCHIVE_TIME` 条目为已归档；「已归档」页取消归档后，属性被删除、任务回到文件末尾并提升为 `* DONE`。
+
+## 37. 新建任务的日期与时刻（2026-11-27）
+
+- 新建任务弹窗从「无日期 / 今天 / 明天」三个快捷项扩展为：快捷项 + 「选择日期…」（Material 3 DatePicker）+ 时间行（TimePicker，默认 09:00，可清除）。
+- `OrgDocument.appendTask` 增加 `time` 参数，写回 `SCHEDULED: <2026-11-27 Fri 09:00>`；`TaskViewModel.addTask / addTaskToList` 同步透传。
+- 验证：模拟器上新建「with_datetime」，选今天 + 09:00，文件写入 `SCHEDULED: <2026-11-27 Fri 09:00>`。

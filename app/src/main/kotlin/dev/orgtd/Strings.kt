@@ -61,6 +61,7 @@ class AppStrings(private val en: Boolean) {
     val titleLabel = s("标题", "Title")
     val dateLabel = s("日期", "Date")
     val noDate = s("无日期", "No date")
+    val chooseDate = s("选择日期…", "Pick a date…")
     val priorityLabel = s("优先级", "Priority")
     val timeLabel = s("时间", "Time")
     val notesLabel = s("备注", "Notes")
