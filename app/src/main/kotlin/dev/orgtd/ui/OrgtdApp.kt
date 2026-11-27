@@ -3,7 +3,18 @@ package dev.orgtd.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -138,6 +149,8 @@ fun OrgtdApp(
     onAddTaskToList: (String, LocalDate?, LocalTime?, Int) -> Unit,
     onUpdateTask: (Int, String, LocalDate?, LocalTime?, Char?) -> Unit,
     onPostponeTask: (Int, Long) -> Unit,
+    onPostponeTaskTo: (Int, LocalDate) -> Unit,
+    onSetReminderBefore: (Int, Boolean) -> Unit,
     onArchiveTask: (Int) -> Unit,
     onUnarchiveTask: (Int) -> Unit,
     onMoveTask: (Int, Int?) -> Unit,
@@ -150,6 +163,7 @@ fun OrgtdApp(
     onRenameList: (Int, String) -> Unit,
     onDeleteList: (Int) -> Unit,
     onMoveList: (Int, Int) -> Unit,
+    onReorderList: (Int, Int) -> Unit,
     onSaveWebDav: (String, String, String) -> Unit,
     onSetTheme: (String) -> Unit,
     onSetDarkMode: (DarkMode) -> Unit,
@@ -326,6 +340,7 @@ fun OrgtdApp(
                     },
                     onDelete = { line -> deletingLine = line },
                     onMove = onMoveList,
+                    onReorder = onReorderList,
                 )
                 else -> SearchTab(
                     state = state,
@@ -429,6 +444,14 @@ fun OrgtdApp(
             onDelete = { confirmDelete(editing.line) },
             onPostpone = { days ->
                 onPostponeTask(editing.line, days)
+                editingLine = -1
+            },
+            onPostponeDate = { date ->
+                onPostponeTaskTo(editing.line, date)
+                editingLine = -1
+            },
+            onReminderBefore = { enabled ->
+                onSetReminderBefore(editing.line, enabled)
                 editingLine = -1
             },
             onArchive = {
@@ -558,6 +581,11 @@ private fun ListTasks(
     val direct = tasks.filter { it.projectLine == null }.sortedWith(TASK_ORDER)
     val activeGroups = groups.filter { !it.completed }
     val completedGroups = groups.filter { it.completed }
+    var collapsedProjects by rememberSaveable { mutableStateOf(emptyList<Int>()) }
+    fun collapsed(line: Int) = line in collapsedProjects
+    fun toggleCollapsed(line: Int) {
+        collapsedProjects = if (collapsed(line)) collapsedProjects - line else collapsedProjects + line
+    }
 
     if (direct.isEmpty() && groups.isEmpty()) {
         EmptyHint(strings.listEmpty)
@@ -573,16 +601,20 @@ private fun ListTasks(
             item(key = "group-${group.line}") {
                 ProjectHeader(
                     group = group,
+                    collapsed = collapsed(group.line),
+                    onToggleCollapse = { toggleCollapsed(group.line) },
                     onAdd = onAddToProject,
                     onComplete = onCompleteProject,
                     onReopen = onReopenProject,
                 )
             }
-            items(
-                tasks.filter { it.projectLine == group.line }.sortedWith(TASK_ORDER),
-                key = { it.line },
-            ) { task ->
-                SwipeableTaskRow(task, LocalDate.now(), onToggle, onOpen, onPostpone)
+            if (!collapsed(group.line)) {
+                items(
+                    tasks.filter { it.projectLine == group.line }.sortedWith(TASK_ORDER),
+                    key = { it.line },
+                ) { task ->
+                    SwipeableTaskRow(task, LocalDate.now(), onToggle, onOpen, onPostpone)
+                }
             }
         }
 
@@ -592,16 +624,20 @@ private fun ListTasks(
                 item(key = "group-${group.line}") {
                     ProjectHeader(
                         group = group,
+                        collapsed = collapsed(group.line),
+                        onToggleCollapse = { toggleCollapsed(group.line) },
                         onAdd = onAddToProject,
                         onComplete = onCompleteProject,
                         onReopen = onReopenProject,
                     )
                 }
-                items(
-                    tasks.filter { it.projectLine == group.line }.sortedWith(TASK_ORDER),
-                    key = { it.line },
-                ) { task ->
-                    SwipeableTaskRow(task, LocalDate.now(), onToggle, onOpen, onPostpone)
+                if (!collapsed(group.line)) {
+                    items(
+                        tasks.filter { it.projectLine == group.line }.sortedWith(TASK_ORDER),
+                        key = { it.line },
+                    ) { task ->
+                        SwipeableTaskRow(task, LocalDate.now(), onToggle, onOpen, onPostpone)
+                    }
                 }
             }
         }
@@ -611,6 +647,8 @@ private fun ListTasks(
 @Composable
 private fun ProjectHeader(
     group: GroupUi,
+    collapsed: Boolean,
+    onToggleCollapse: () -> Unit,
     onAdd: (Int) -> Unit,
     onComplete: (Int) -> Unit,
     onReopen: (Int) -> Unit,
@@ -619,9 +657,17 @@ private fun ProjectHeader(
     Column(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
+                text = if (collapsed) "▸" else "▾",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable(onClick = onToggleCollapse),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
                 text = group.name,
                 style = MaterialTheme.typography.titleSmall,
                 color = if (group.completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.clickable(onClick = onToggleCollapse),
             )
             Spacer(Modifier.width(8.dp))
             Text(
@@ -688,6 +734,7 @@ private fun ListsTab(
     onRename: (Int) -> Unit,
     onDelete: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
+    onReorder: (Int, Int) -> Unit,
 ) {
     val strings = LocalStrings.current
     val lists = state.lists
@@ -728,27 +775,93 @@ private fun ListsTab(
         }
     }
 
-    if (LocalAppleStyle.current) {
-        LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
-            item {
-                IosGroup {
-                    rows.forEachIndexed { index, row ->
-                        ListRow(row.name, row.open, row.done, row.actions, row.onClick)
-                        if (index != rows.lastIndex) IosDivider()
-                    }
-                }
-            }
+    val ungroupedOffset = if (state.ungrouped.isNotEmpty()) 1 else 0
+    var dragIndex by remember { mutableIntStateOf(-1) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    val rowHeightPx = with(LocalDensity.current) { 56.dp.toPx() }
+
+    val finishDrag: () -> Unit = {
+        if (dragIndex >= 0) {
+            val targetRow = (dragIndex + (dragOffset / rowHeightPx).roundToInt()).coerceIn(0, rows.lastIndex)
+            val from = dragIndex - ungroupedOffset
+            val to = targetRow - ungroupedOffset
+            if (from >= 0 && to >= 0 && from != to) onReorder(from, to)
         }
-        return
+        dragIndex = -1
+        dragOffset = 0f
     }
 
-    LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
-        rows.forEachIndexed { index, row ->
-            item(key = if (row.actions == null) "ungrouped" else "list-$index") {
-                ListRow(row.name, row.open, row.done, row.actions, row.onClick)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = 8.dp),
+    ) {
+        val grouped = LocalAppleStyle.current
+        if (grouped) IosGroup {
+            rows.forEachIndexed { index, row ->
+                ReorderableRow(
+                    dragging = dragIndex == index,
+                    dragOffset = dragOffset,
+                    enabled = row.actions != null,
+                    onDragStart = { dragIndex = index; dragOffset = 0f },
+                    onDrag = { dragOffset += it },
+                    onDragEnd = finishDrag,
+                ) {
+                    ListRow(row.name, row.open, row.done, row.actions, row.onClick)
+                }
+                if (index != rows.lastIndex) IosDivider()
+            }
+        } else {
+            rows.forEachIndexed { index, row ->
+                ReorderableRow(
+                    dragging = dragIndex == index,
+                    dragOffset = dragOffset,
+                    enabled = row.actions != null,
+                    onDragStart = { dragIndex = index; dragOffset = 0f },
+                    onDrag = { dragOffset += it },
+                    onDragEnd = finishDrag,
+                ) {
+                    ListRow(row.name, row.open, row.done, row.actions, row.onClick)
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             }
         }
     }
+}
+
+@Composable
+private fun ReorderableRow(
+    dragging: Boolean,
+    dragOffset: Float,
+    enabled: Boolean,
+    onDragStart: () -> Unit,
+    onDrag: (Float) -> Unit,
+    onDragEnd: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .zIndex(if (dragging) 1f else 0f)
+            .offset { IntOffset(0, if (dragging) dragOffset.roundToInt() else 0) }
+            .then(
+                if (enabled) {
+                    Modifier.pointerInput(Unit) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { onDragStart() },
+                            onDragEnd = { onDragEnd() },
+                            onDragCancel = { onDragEnd() },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                onDrag(amount.y)
+                            },
+                        )
+                    }
+                } else {
+                    Modifier
+                },
+            ),
+    ) { content() }
 }
 
 
@@ -825,14 +938,61 @@ private fun GroupedTaskList(
         return
     }
 
+    var collapsed by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val groups = tasks.groupBy { it.groupingPath(strings.ungrouped) }
     LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
         groups.forEach { (name, groupTasks) ->
-            item(key = "header-$name") { SectionHeader(name) }
-            items(groupTasks.sortedWith(TASK_ORDER), key = { it.line }) { task ->
-                SwipeableTaskRow(task, today, onToggle, onOpen, onPostpone)
+            val isCollapsed = name in collapsed
+            item(key = "header-$name") {
+                CollapsibleHeader(
+                    name = name,
+                    count = groupTasks.size,
+                    collapsed = isCollapsed,
+                    onToggle = {
+                        collapsed = if (isCollapsed) collapsed - name else collapsed + name
+                    },
+                )
+            }
+            if (!isCollapsed) {
+                items(groupTasks.sortedWith(TASK_ORDER), key = { it.line }) { task ->
+                    SwipeableTaskRow(task, today, onToggle, onOpen, onPostpone)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun CollapsibleHeader(
+    name: String,
+    count: Int,
+    collapsed: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(top = 16.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = if (collapsed) "▸" else "▾",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = name,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -907,7 +1067,10 @@ private fun SwipeableTaskRow(
         enableDismissFromEndToStart = true,
         backgroundContent = { SwipeActionBackground(dismissState.dismissDirection, strings) },
     ) {
-        TaskRow(task, today, onToggle, onOpen)
+        // 左滑完成的方向上，随滑动进度逐渐"划掉"文字，给一个明确的完成反馈
+        val strike = task.done ||
+            (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart && dismissState.progress > 0.15f)
+        TaskRow(task, today, onToggle, onOpen, strike = strike)
     }
 }
 
@@ -938,6 +1101,7 @@ private fun TaskRow(
     today: LocalDate,
     onToggle: (Int) -> Unit,
     onOpen: (Int) -> Unit,
+    strike: Boolean = false,
 ) {
     val strings = LocalStrings.current
     val overdue = !task.done && task.date != null && task.date.isBefore(today)
@@ -960,7 +1124,7 @@ private fun TaskRow(
                 Text(
                     text = task.title,
                     style = MaterialTheme.typography.bodyLarge,
-                    textDecoration = if (task.done) TextDecoration.LineThrough else null,
+                    textDecoration = if (task.done || strike) TextDecoration.LineThrough else null,
                     color = if (task.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                 )
                 val meta = taskMeta(task, today, strings)

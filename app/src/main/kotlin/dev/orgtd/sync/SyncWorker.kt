@@ -26,6 +26,7 @@ class SyncWorker(
             val snapshot = source.read() ?: return@withContext Result.success()
             val tasks = TaskMapper.toTasks(OrgDocument.parse(snapshot.text))
             ReminderScheduler.sync(applicationContext, tasks)
+            dev.orgtd.widget.WidgetRenderer.refreshAll(applicationContext)
             Result.success()
         } catch (error: Exception) {
             if (runAttemptCount < 3) Result.retry() else Result.failure()

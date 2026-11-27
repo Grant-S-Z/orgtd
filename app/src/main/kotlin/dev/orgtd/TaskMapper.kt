@@ -34,6 +34,7 @@ object TaskMapper {
                 date = headline.date,
                 time = headline.scheduled?.time,
                 repeater = headline.scheduled?.repeater,
+                warning = headline.scheduled?.warning ?: headline.deadline?.warning,
                 priority = headline.priority,
                 tags = headline.tags,
                 listName = list?.title,
@@ -119,14 +120,24 @@ object TaskMapper {
         return parts.joinToString("\n")
     }
 
-    /** 只对带时刻的计划行提醒：优先 SCHEDULED，其次 DEADLINE。 */
+    /** 只对带时刻的计划行提醒：优先 SCHEDULED，其次 DEADLINE；有 warning 时提前。 */
     private fun reminderAt(headline: Headline): LocalDateTime? {
-        headline.scheduled?.let { spec ->
-            spec.time?.let { return LocalDateTime.of(spec.date, it) }
-        }
-        headline.deadline?.let { spec ->
-            spec.time?.let { return LocalDateTime.of(spec.date, it) }
+        (headline.scheduled ?: headline.deadline)?.let { spec ->
+            val time = spec.time ?: return null
+            return applyWarning(LocalDateTime.of(spec.date, time), spec.warning)
         }
         return null
+    }
+
+    private val WARNING = Regex("^(-+)(\\d+)([hdm])$")
+
+    private fun applyWarning(base: LocalDateTime, warning: String?): LocalDateTime {
+        val match = warning?.trim()?.let { WARNING.find(it) } ?: return base
+        val amount = match.groupValues[2].toLongOrNull() ?: return base
+        return when (match.groupValues[3]) {
+            "h" -> base.minusHours(amount)
+            "d" -> base.minusDays(amount)
+            else -> base.minusMinutes(amount)
+        }
     }
 }

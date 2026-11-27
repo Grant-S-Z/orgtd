@@ -38,6 +38,7 @@ data class TaskUi(
     val date: LocalDate?,
     val time: LocalTime?,
     val repeater: String?,
+    val warning: String? = null,
     val priority: Char?,
     val tags: List<String>,
     val listName: String?,
@@ -337,23 +338,8 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
     // ---------------------------------------------------------------- 写入
 
     fun toggle(line: Int) = mutate(line) { doc, at ->
-        val entry = doc.entryAt(at) ?: error(strings.staleTask)
-        val withId = doc.ensureId(entry)
-        val target = withId.entryAt(at) ?: error(strings.staleTask)
-        val targetId = target.id
-        val now = LocalDateTime.now()
-
-        // 重复任务：完成即推进日期，状态保持 TODO（不参与父子级联）
-        if (!target.isDone) {
-            withId.advanceRepeat(target, LocalDate.now())?.let { return@mutate it }
-        }
-
-        val toggled = withId.toggleDone(target, now)
-        when {
-            targetId == null -> toggled
-            target.isDone -> toggled.reopenAncestorsWithOpenChild(targetId, now)
-            else -> toggled.completeDoneAncestors(targetId, now)
-        }
+        if (doc.entryAt(at) == null) error(strings.staleTask)
+        TaskMutations.toggle(doc, at, LocalDateTime.now())
     }
 
     fun addTask(title: String, date: LocalDate?, time: LocalTime? = null) {
@@ -419,18 +405,23 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 推迟：保留原有时刻与重复规则；没有计划行时补一个日期。 */
     fun postponeTask(line: Int, days: Long = 1) = mutate(line) { doc, at ->
+        if (doc.entryAt(at) == null) error(strings.staleTask)
+        TaskMutations.postpone(doc, at, LocalDate.now().plusDays(days))
+    }
+
+    /** 推迟到指定日期。 */
+    fun postponeTaskTo(line: Int, date: LocalDate) = mutate(line) { doc, at ->
+        if (doc.entryAt(at) == null) error(strings.staleTask)
+        TaskMutations.postpone(doc, at, date)
+    }
+
+    /** 给任务加/去「提前 5 分钟提醒」（org 的 warning：`-5m`）。 */
+    fun setReminderBefore(line: Int, enabled: Boolean) = mutate(line) { doc, at ->
         val entry = doc.entryAt(at) ?: error(strings.staleTask)
         val withId = doc.ensureId(entry)
         val target = withId.entryAt(at) ?: error(strings.staleTask)
-        val old = target.scheduled
-        val spec = DateSpec(
-            date = LocalDate.now().plusDays(days),
-            time = old?.time,
-            repeater = old?.repeater,
-            warning = old?.warning,
-            active = old?.active ?: true,
-        )
-        withId.setScheduled(target, spec)
+        val scheduled = target.scheduled ?: return@mutate withId
+        withId.setScheduled(target, scheduled.copy(warning = if (enabled) "-5m" else null))
     }
 
     /** 把任务移到另一个清单；[listLine] 为 null 表示移到「未归类」。 */
@@ -496,6 +487,22 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         val list = doc.entries.firstOrNull { it.lineIndex == at && it.isList }
             ?: error(strings.staleList)
         doc.archiveList(list, LocalDateTime.now())
+    }
+
+    /** 拖拽排序：把第 [from] 个清单移动到第 [to] 个位置。 */
+    fun reorderList(from: Int, to: Int) = mutate(NO_TARGET) { doc, _ ->
+        var working = doc
+        var current = from
+        repeat(32) {
+            val lists = working.entries.filter { it.level == 1 }
+            if (current == to || current !in lists.indices || to !in lists.indices) return@repeat
+            val direction = if (to > current) 1 else -1
+            val next = working.moveList(lists[current], direction)
+            if (next.serialize() == working.serialize()) return@repeat
+            working = next
+            current += direction
+        }
+        working
     }
 
     fun moveList(line: Int, delta: Int) = mutate(line) { doc, at ->
@@ -638,6 +645,7 @@ class TaskViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch(Dispatchers.IO) {
             ReminderScheduler.sync(getApplication(), tasks)
+            dev.orgtd.widget.WidgetRenderer.refreshAll(getApplication())
         }
     }
 }

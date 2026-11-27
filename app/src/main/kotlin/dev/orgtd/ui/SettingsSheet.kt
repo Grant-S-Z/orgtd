@@ -293,6 +293,26 @@ fun SettingsSheet(
             }
 
             HorizontalDivider(Modifier.padding(vertical = 4.dp))
+            Text(strings.appSettings, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = strings.appSettingsHint,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(
+                                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:${context.packageName}"),
+                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
+                },
+            ) { Text(strings.appSettings) }
+
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
             Text(strings.exportTitle, style = MaterialTheme.typography.titleMedium)
             Text(
                 text = strings.exportHint,

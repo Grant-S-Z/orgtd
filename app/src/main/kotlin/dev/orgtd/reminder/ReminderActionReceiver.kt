@@ -28,7 +28,10 @@ class ReminderActionReceiver : BroadcastReceiver() {
                     ACTION_POSTPONE -> ReminderActions.postpone(context, title)
                     else -> false
                 }
-                if (changed) ReminderNotifier.cancel(context, id)
+                if (changed) {
+                    ReminderNotifier.cancel(context, id)
+                    dev.orgtd.widget.WidgetRenderer.refreshAll(context)
+                }
             } finally {
                 pending.finish()
             }

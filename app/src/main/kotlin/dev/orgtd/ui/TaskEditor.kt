@@ -58,6 +58,7 @@ fun AddTaskDialog(
     var timeIso by rememberSaveable { mutableStateOf<String?>(null) }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     var showTimePicker by rememberSaveable { mutableStateOf(false) }
+    var showPostponeDatePicker by rememberSaveable { mutableStateOf(false) }
     val date = dateIso?.let(LocalDate::parse)
     val time = timeIso?.let(LocalTime::parse)
     val today = LocalDate.now()
@@ -191,6 +192,8 @@ fun TaskSheet(
     onSave: (String, LocalDate?, LocalTime?, Char?) -> Unit,
     onDelete: () -> Unit,
     onPostpone: (Long) -> Unit,
+    onPostponeDate: (LocalDate) -> Unit,
+    onReminderBefore: (Boolean) -> Unit,
     onArchive: () -> Unit,
     onUnarchive: () -> Unit,
     destinations: List<Pair<Int, String>>,
@@ -206,6 +209,7 @@ fun TaskSheet(
     var priority by rememberSaveable(task.line) { mutableStateOf(task.priority?.toString() ?: "") }
     var time by rememberSaveable(task.line) { mutableStateOf(task.time?.toString()) }
     var showTimePicker by rememberSaveable { mutableStateOf(false) }
+    var showPostponeDatePicker by rememberSaveable { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -271,6 +275,15 @@ fun TaskSheet(
                 if (time != null) {
                     TextButton(onClick = { time = null }) { Text(strings.clearTime) }
                 }
+            }
+
+            if (time != null) {
+                FilterChip(
+                    selected = task.warning?.contains("5m") == true,
+                    onClick = { onReminderBefore(task.warning == null) },
+                    label = { Text(strings.remindBefore5) },
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
 
             Spacer(Modifier.height(20.dp))
@@ -342,6 +355,40 @@ fun TaskSheet(
                         text = { Text(strings.postponeInWeek) },
                         onClick = { postponeMenu = false; onPostpone(7) },
                     )
+                    DropdownMenuItem(
+                        text = { Text(strings.postponeToDate) },
+                        onClick = { postponeMenu = false; showPostponeDatePicker = true },
+                    )
+                }
+            }
+
+            if (showPostponeDatePicker) {
+                val pickerState = rememberDatePickerState(
+                    initialSelectedDateMillis = LocalDate.now()
+                        .plusDays(1)
+                        .atStartOfDay(ZoneOffset.UTC)
+                        .toInstant()
+                        .toEpochMilli(),
+                )
+                DatePickerDialog(
+                    onDismissRequest = { showPostponeDatePicker = false },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                pickerState.selectedDateMillis?.let { millis ->
+                                    onPostponeDate(
+                                        Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate(),
+                                    )
+                                }
+                                showPostponeDatePicker = false
+                            },
+                        ) { Text(strings.confirm) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showPostponeDatePicker = false }) { Text(strings.cancel) }
+                    },
+                ) {
+                    DatePicker(state = pickerState)
                 }
             }
 

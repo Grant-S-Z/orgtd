@@ -590,3 +590,13 @@ material3 1.5 提供 `ExperimentalMaterial3ExpressiveApi`（新的动效方案�
 - 新建任务弹窗从「无日期 / 今天 / 明天」三个快捷项扩展为：快捷项 + 「选择日期…」（Material 3 DatePicker）+ 时间行（TimePicker，默认 09:00，可清除）。
 - `OrgDocument.appendTask` 增加 `time` 参数，写回 `SCHEDULED: <2026-11-27 Fri 09:00>`；`TaskViewModel.addTask / addTaskToList` 同步透传。
 - 验证：模拟器上新建「with_datetime」，选今天 + 09:00，文件写入 `SCHEDULED: <2026-11-27 Fri 09:00>`。
+
+## 38. 桌面组件、拖拽与交互补全（2026-11-27）
+
+- **桌面组件**（`RemoteViews`，不引入 Glance）：4×2、4 行「今天+逾期」任务；`WidgetData` 复用 `Sources`/`TaskMapper`，行点击走 `TaskMutations.toggle` 后写回并重排提醒；标题点击打开 App，↻ 刷新。`updatePeriodMillis` 30 分钟，App 内任何刷新/写入（ViewModel、SyncWorker、通知动作）都会触发组件更新。动作广播由**不导出**的 `WidgetActionReceiver` 处理，避免外部应用伪造；组件行携带标题，行号与标题不匹配时放弃操作。深色模式用 `values-night` 颜色与 `drawable-night` 背景。
+- **拖拽排序**：Lists 页用 `detectDragGesturesAfterLongPress` + 偏移量计算目标下标，`reorderList` 循环调用 `moveList` 落盘；只对真实清单生效，Unfiled 行不可拖。任务列表仍按日期排序，不提供拖拽。
+- **自定义推迟**：任务详情「推迟」菜单加日期选择器，`TaskMutations.postpone(doc, line, date)` 保留时刻/重复规则。
+- **提前 5 分钟提醒**：用 org 原生 warning，写 `SCHEDULED: <… 10:00 -5m>`；`TaskMapper.applyWarning` 把 `-Nh/-Nm/-Nd` 从提醒时间中减去，Emacs agenda 也识别。
+- **折叠**：分组标题点击折叠（`rememberSaveable` 记录折叠集合），清单详情的项目标题同样可折叠。
+- **划线反馈**：左滑时 `SwipeToDismissBoxState.progress` 驱动标题删除线。
+- **设置入口**：新增「后台运行设置」，跳 `ACTION_APPLICATION_DETAILS_SETTINGS`。

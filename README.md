@@ -46,7 +46,7 @@ orgtd is not another task database. It reads and writes your existing `gtd.org` 
 
 **Reminders**
 
-- Exact reminders for `SCHEDULED` / `DEADLINE` entries that have a time, with "Complete" and "Postpone to tomorrow" actions in the notification.
+- Exact reminders for `SCHEDULED` / `DEADLINE` entries that have a time, with "Complete" and "Postpone to tomorrow" actions in the notification. Any timed task can opt into a 5-minute early reminder (org warning `-5m`).
 - Optional 9:00 reminder for date-only tasks.
 
 **Interface**
@@ -54,6 +54,8 @@ orgtd is not another task database. It reads and writes your existing `gtd.org` 
 - Chinese / English, following the system language or set per app; switches take effect immediately.
 - Two visual styles: Apple (default, iOS-like) and Material 3 (five colour schemes plus dynamic colour).
 - Light / dark / follow-system appearance.
+- Collapsible groups in Today / This week / All and in list details; lists can be reordered by long-press drag.
+- 4×2 home-screen widget showing today and overdue tasks: tap a row to complete it, tap the title to open the app, tap ↻ to refresh.
 - Settings → About checks GitHub Releases and can download and install an update in place (Android asks once for permission to install apps from orgtd, then shows its own install confirmation).
 
 ## Install

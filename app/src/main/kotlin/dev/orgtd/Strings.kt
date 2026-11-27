@@ -36,6 +36,14 @@ class AppStrings(private val en: Boolean) {
     val completeProject = s("标记项目完成", "Mark project complete")
     val reopenProject = s("重新打开项目", "Reopen project")
     val projectAllDone = s("所有任务已完成，可以标记项目完成", "All tasks done — you can mark this project complete")
+    val widgetError = s("组件读取失败", "Widget error")
+    val postponeToDate = s("推迟到某天…", "Postpone to a date…")
+    val remindBefore5 = s("提前 5 分钟提醒", "Remind 5 min before")
+    val appSettings = s("后台运行设置", "Background settings")
+    val appSettingsHint = s(
+        "华为/鸿蒙机型建议在「应用启动管理」里允许 orgtd 自启动和后台活动，否则提醒可能被系统清掉。",
+        "On Huawei/HarmonyOS, allow orgtd to auto-launch and run in the background, otherwise reminders may be killed.",
+    )
     val search = s("搜索", "Search")
 
     // 通用动作

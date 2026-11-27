@@ -1,6 +1,7 @@
 package dev.orgtd
 
 import dev.orgtd.orgmode.OrgDocument
+import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -36,6 +37,16 @@ class TaskMapperTest {
     fun `没有正文时为空串`() {
         val doc = OrgDocument.parse("* 工作\n** TODO 只有标题\n")
         assertEquals("", TaskMapper.toTasks(doc).first { it.title == "只有标题" }.body)
+    }
+
+    @Test
+    fun `warning 让提醒提前五分钟`() {
+        val doc = OrgDocument.parse(
+            "* TODO 开会\nSCHEDULED: <2026-11-27 Fri 10:00 -5m>\n",
+        )
+        val task = TaskMapper.toTasks(doc).first()
+        assertEquals(LocalDateTime.of(2026, 11, 27, 9, 55), task.reminderAt)
+        assertEquals("-5m", task.warning)
     }
 
     @Test
